@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+import string
 import boto3
 import json
 import os
@@ -125,6 +126,7 @@ def summarize_blog(
     blog_body,
     language,
     persona,
+    prompt_version,
 ):
     """Summarize the content of a blog post
     Args:
@@ -141,7 +143,7 @@ def summarize_blog(
         region=MODEL_REGION,
     )
     beginning_word = "<output>"
-    prompt_data = f"""
+    default_prompt  = f"""
 <input>{blog_body}</input>
 <persona>You are a professional {persona}. </persona>
 <instruction>Describe a new update in <input></input> tags in bullet points to describe "What is the new feature", "Who is this update good for". description shall be output in <thinking></thinking> tags and each thinking sentence must start with the bullet point "- " and end with "\n". Make final summary as per <summaryRule></summaryRule> tags. Try to shorten output for easy reading. You are not allowed to utilize any information except in the input. output format shall be in accordance with <outputFormat></outputFormat> tags.</instruction>
@@ -150,6 +152,28 @@ def summarize_blog(
 <outputFormat><thinking>(bullet points of the input)</thinking><summary>(final summary)</summary></outputFormat>
 Follow the instruction.
 """
+
+    v2_prompt = f"""
+<input>{blog_body}</input>
+<persona>You are a professional {persona}. </persona>
+<targetAudience>
+Your readers have the following characteristics:
+- Have basic knowledge of AWS services
+- Want to understand daily updates efficiently and quickly
+- Find AWS official announcements difficult to understand and prefer plain, easy-to-understand language
+</targetAudience>
+<instruction>Describe a new update in <input></input> tags in bullet points to describe "What is the new feature", "Who is this update good for". Keep in mind your target audience specified in <targetAudience></targetAudience> tags - use plain language instead of complex technical jargon, focus on practical benefits, and make the content easily digestible for busy professionals who need to stay updated efficiently. Description shall be output in <thinking></thinking> tags and each thinking sentence must start with the bullet point "- " and end with "\n". Make final summary as per <summaryRule></summaryRule> tags. Try to shorten output for easy reading. You are not allowed to utilize any information except in the input. Output format shall be in accordance with <outputFormat></outputFormat> tags.</instruction>
+<outputLanguage>In {language}.</outputLanguage>
+<summaryRule>The final summary must consists of 1 or 2 sentences and should be written in plain language that busy AWS practitioners can quickly understand. Output format is defined in <outputFormat></outputFormat> tags.</summaryRule>
+<outputFormat><thinking>(bullet points of the input)</thinking><summary>(final summary)</summary></outputFormat>
+Follow the instruction.
+"""
+    prompts = {
+        "default": default_prompt,
+        "v1": default_prompt,
+        "v2": v2_prompt
+    }
+    prompt_data = prompts.get(prompt_version, default_prompt)
 
     max_tokens = 4096
 
@@ -219,6 +243,7 @@ def push_notification(item_list):
         
         notifier = NOTIFIERS[item["rss_notifier_name"]]
         webhook_url_parameter_name = notifier["webhookUrlParameterName"]
+        prompt_version = notifier.get("promptVersion", "v1")
         destination = notifier["destination"]
         ssm_response = ssm.get_parameter(Name=webhook_url_parameter_name, WithDecryption=True)
         app_webhook_url = ssm_response["Parameter"]["Value"]
@@ -230,7 +255,7 @@ def push_notification(item_list):
 
         # Summarize the blog
         summarizer = SUMMARIZERS[notifier["summarizerName"]]
-        summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"])
+        summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
 
         # Add the summary text to notified message
         item["summary"] = summary

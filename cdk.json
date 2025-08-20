@@ -17,8 +17,8 @@
         ]
     },
     "context": {
-        "modelRegion": "us-east-1",
-        "modelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "modelRegion": "ap-northeast-1",
+        "modelId": "anthropic.claude-sonnet-4-20250514-v1:0",
         "summarizers": {
             "AwsSolutionsArchitectEnglish": {
                 "outputLanguage": "English.",
@@ -36,7 +36,8 @@
                 "webhookUrlParameterName": "/WhatsNew/URL",
                 "rssUrl": {
                     "What’s new": "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
-                }
+                },
+                "promptVersion": "v1"
             }
         },
         "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
