@@ -17,4 +17,12 @@ __pycache__/
 venv/
 ENV/
 
-.aws
+# AWS Credentials
+
+.aws/credentials
+.aws/config
+.aws/cli/cache/
+.aws/amazonq/history/
+.aws/amazonq/cache/
+.aws/amazonq/*.log
+.aws/sso/cache/
