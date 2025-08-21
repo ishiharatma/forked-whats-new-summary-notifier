@@ -18,7 +18,7 @@
     },
     "context": {
         "modelRegion": "ap-northeast-1",
-        "modelId": "anthropic.claude-sonnet-4-20250514-v1:0",
+        "modelId": "apac.anthropic.claude-sonnet-4-20250514-v1:0",
         "summarizers": {
             "AwsSolutionsArchitectEnglish": {
                 "outputLanguage": "English.",
@@ -31,13 +31,25 @@
         },
         "notifiers": {
             "AwsWhatsNew": {
-                "destination": "slack",
+                "destination": "slackfree",
                 "summarizerName": "AwsSolutionsArchitectJapanese",
                 "webhookUrlParameterName": "/WhatsNew/URL",
+                "destinations": [
+                    {
+                        "type": "slackfree",
+                        "distinationType": "URL",
+                        "parameterName": "/WhatsNew/URL"
+                    },
+                    {
+                        "type": "teams",
+                        "distinationType": "URL",
+                        "parameterName": "/WhatsNew/URL/Teams"
+                    }
+                ],
                 "rssUrl": {
                     "What’s new": "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
                 },
-                "promptVersion": "v1"
+                "promptVersion": "v2"
             }
         },
         "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,

@@ -22,6 +22,7 @@ NOTIFIERS = json.loads(os.environ["NOTIFIERS"])
 SUMMARIZERS = json.loads(os.environ["SUMMARIZERS"])
 
 ssm = boto3.client("ssm")
+sns_client = boto3.client("sns")
 
 
 def get_blog_content(url):
@@ -244,9 +245,10 @@ def push_notification(item_list):
         notifier = NOTIFIERS[item["rss_notifier_name"]]
         webhook_url_parameter_name = notifier["webhookUrlParameterName"]
         prompt_version = notifier.get("promptVersion", "v1")
-        destination = notifier["destination"]
-        ssm_response = ssm.get_parameter(Name=webhook_url_parameter_name, WithDecryption=True)
-        app_webhook_url = ssm_response["Parameter"]["Value"]
+        #destination = notifier["destination"]
+        destinations = notifier.get("destinations", [])
+        #ssm_response = ssm.get_parameter(Name=webhook_url_parameter_name, WithDecryption=True)
+        #app_webhook_url = ssm_response["Parameter"]["Value"]
         
         item_url = item["rss_link"]
 
@@ -260,21 +262,57 @@ def push_notification(item_list):
         # Add the summary text to notified message
         item["summary"] = summary
         item["detail"] = detail
-        if destination == "teams":
-            item["detail"] = item["detail"].replace("。\n", "。\r")
-            msg = create_teams_message(item)
-        else:  # Slack
-            msg = item
 
-        encoded_msg = json.dumps(msg).encode("utf-8")
-        print("push_msg:{}".format(item))
-        headers = {
-            "Content-Type": "application/json",
-        }
-        req = urllib.request.Request(app_webhook_url, encoded_msg, headers)
-        with urllib.request.urlopen(req) as res:
-            print(res.read())
-        time.sleep(0.5)
+        for destination in destinations:
+            type = destination["type"]
+            destination_type = destination["distinationType"]
+            ssm_response = ssm.get_parameter(Name=destination["parameterName"], WithDecryption=True)
+            destination_url = ssm_response["Parameter"]["Value"]
+
+            if type == "teams":                
+                item["detail"] = item["detail"].replace("。\n", "。\r")
+                msg = create_teams_message(item)
+            elif type == "slackfree":
+                msg = create_free_slack_message(item)
+            else:  # Slack
+                msg = item
+
+            encoded_msg = json.dumps(msg).encode("utf-8")
+            print("push_msg:{}".format(item))
+
+            if destination_type == "URL":
+                headers = {
+                    "Content-Type": "application/json",
+                }
+                print("app_webhook_url:{}".format(destination_url))
+                req = urllib.request.Request(destination_url, encoded_msg, headers)
+                with urllib.request.urlopen(req) as res:
+                    print(res.read())
+            elif destination_type == "SNS":
+                sns_client.publish(
+                    TopicArn=destination_url,
+                    Message=encoded_msg
+                )
+            time.sleep(0.5)
+
+        #if destination == "teams":
+        #    item["detail"] = item["detail"].replace("。\n", "。\r")
+        #    msg = create_teams_message(item)
+        #elif destination == "slackfree":
+        #    msg = create_free_slack_message(item)
+        #else:  # Slack
+        #    msg = item
+#
+        #encoded_msg = json.dumps(msg).encode("utf-8")
+        #print("push_msg:{}".format(item))
+        #headers = {
+        #    "Content-Type": "application/json",
+        #}
+        #print("app_webhook_url:{}".format(app_webhook_url))
+        #req = urllib.request.Request(app_webhook_url, encoded_msg, headers)
+        #with urllib.request.urlopen(req) as res:
+        #    print(res.read())
+        #time.sleep(0.5)
 
 
 def get_new_entries(blog_entries):
@@ -301,6 +339,96 @@ def get_new_entries(blog_entries):
             print("skip REMOVE or UPDATE event")
     return res_list
 
+def create_free_slack_message(item):
+    # 改行区切りのdetailsを配列に分割
+    details = item["detail"].split("\n")
+    # elements に以下のフォーマットで格納する
+    # {
+	#    "type": "rich_text_section",
+	#    "elements": [
+	#     {
+	#       "type": "text",
+	#       "text": "item 2: this is a list item"
+	#     }
+	#     ]
+	# },
+    # 空文字はスキップする
+    elements = []
+    for detail in details:
+        if detail:  # 空文字でないことを確認
+            # 先頭にある"- "を削除
+            detail = detail.lstrip("- ")
+            elements.append({
+                "type": "rich_text_section",
+                "elements": [
+                {
+                    "type": "text",
+                    "text": detail
+                }
+            ]
+        })
+
+    message = {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f'{item["rss_title"]}',
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "plain_text",
+                        "text": f'{item["rss_category"]}'
+                    },
+                    {
+                        "type": "plain_text",
+                        "text": ":clock1: {}".format(f'{item["rss_time"]}'),
+                    }
+                ]
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "plain_text",
+                    "text": f'{item["summary"]}',
+                }
+            },
+    		{
+	    		"type": "rich_text",
+		    	"elements": [
+                    {
+                        "type": "rich_text_list",
+                        "style": "bullet",
+                        "indent": 0,
+                        "elements": elements
+                    }
+                ]
+             },
+            {
+                "type": "section",
+                "text": {
+                    "type": "plain_text",
+                    "text": ":link:AWSページを確認するには、ボタンをクリックしてください。",
+                },
+                "accessory": {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Click Me"
+                    },
+                    "value": "click_me_123",
+                    "url": f'{item["rss_link"]}',
+                    "action_id": "button-action"
+                }
+            }
+        ]
+    }
+    return message
+
 
 def create_teams_message(item):
     message = {
@@ -326,6 +454,10 @@ def create_teams_message(item):
                                                 {
                                                     "type": "TextBlock",
                                                     "text": f'**{item["rss_title"]}**',
+                                                },
+                                                {
+                                                    "type": "TextBlock",
+                                                    "text": "{} Posted at: {}".format(f'{item["rss_category"]}', f'{item["rss_time"]}'),
                                                 },
                                                 {
                                                     "type": "TextBlock",

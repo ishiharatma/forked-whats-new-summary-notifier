@@ -122,6 +122,22 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         month: '*',
         year: '*',
       };
+      const destinations: [] = notifier['destinations'] || [];
+
+      destinations.forEach((destination, index) => {
+        const destinationType = destination['type'];
+        const parameterName = destination['parameterName'];
+        const webhookUrlParameterStore = StringParameter.fromSecureStringParameterAttributes(
+          this,
+          `webhookUrlParameterStore-${notifierName}-${index}-${destinationType}`,
+          {
+            parameterName: parameterName,
+          }
+        );// add permission to Lambda Role
+        webhookUrlParameterStore.grantRead(notifyNewEntryRole);
+
+      });
+      /*
       const webhookUrlParameterName = notifier['webhookUrlParameterName'];
       const webhookUrlParameterStore = StringParameter.fromSecureStringParameterAttributes(
         this,
@@ -133,7 +149,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
 
       // add permission to Lambda Role
       webhookUrlParameterStore.grantRead(notifyNewEntryRole);
-
+      */
       // Scheduled Rule for RSS Crawler
       // Run every hour, 24 hours a day
       // see https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions
