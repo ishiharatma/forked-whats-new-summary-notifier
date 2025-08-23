@@ -10,7 +10,7 @@ import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import * as path from 'path';
-
+import * as lambda from "aws-cdk-lib/aws-lambda";
 export class WhatsNewSummaryNotifierStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
@@ -68,6 +68,11 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       billingMode: BillingMode.PAY_PER_REQUEST,
       stream: StreamViewType.NEW_IMAGE,
     });
+    const notifyHistoryTable = new Table(this, 'WhatsNewNotifyHistory', {
+      partitionKey: { name: 'url', type: AttributeType.STRING },
+      sortKey: { name: 'notifier_name', type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+    });
 
     // Lambda Function to post new entries written to DynamoDB to Slack or Microsoft Teams
     const notifyNewEntry = new PythonFunction(this, 'NotifyNewEntry', {
@@ -78,12 +83,15 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       timeout: Duration.seconds(180),
       logRetention: RetentionDays.TWO_WEEKS,
       role: notifyNewEntryRole,
+      applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
+      loggingFormat: lambda.LoggingFormat.JSON,
       reservedConcurrentExecutions: 1,
       environment: {
         MODEL_ID: modelId,
         MODEL_REGION: modelRegion,
         NOTIFIERS: JSON.stringify(notifiers),
         SUMMARIZERS: JSON.stringify(summarizers),
+        DDB_TABLE_NAME: notifyHistoryTable.tableName,
       },
     });
 
@@ -96,6 +104,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
 
     // Allow writing to DynamoDB
     rssHistoryTable.grantWriteData(newsCrawlerRole);
+    notifyHistoryTable.grantWriteData(notifyNewEntryRole);
 
     // Lambda Function to fetch RSS and write to DynamoDB
     const newsCrawler = new PythonFunction(this, `newsCrawler`, {
@@ -105,6 +114,8 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       index: 'index.py',
       timeout: Duration.seconds(60),
       logRetention: RetentionDays.TWO_WEEKS,
+      applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
+      loggingFormat: lambda.LoggingFormat.JSON,
       role: newsCrawlerRole,
       environment: {
         DDB_TABLE_NAME: rssHistoryTable.tableName,

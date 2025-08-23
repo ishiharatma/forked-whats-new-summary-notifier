@@ -41,7 +41,7 @@ def str2datetime(time_str):
     return dateutil.parser.parse(time_str, ignoretz=True)
 
 
-def write_to_table(link, title, category, pubtime, notifier_name):
+def write_to_table(link, title, category, pubtime, notifier_name, service_categories, marketing_architectures):
     """Write a blog post to DynamoDB
 
     Args:
@@ -51,15 +51,26 @@ def write_to_table(link, title, category, pubtime, notifier_name):
         pubtime (str): The publication date of the blog post
     """
     try:
+        # 現在日時
+        now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+        # 書式を yyyy/mm/dd HH:mm:ss に変換
+        formatted_now = now.strftime("%Y/%m/%d %H:%M:%S")
+
         item = {
             "url": link,
             "notifier_name": notifier_name,
             "title": title,
             "category": category,
+            "service_categories": service_categories,
+            "marketing_architectures": marketing_architectures,
             "pubtime": pubtime,
+            "created_at_jst": formatted_now,
         }
         print(item)
-        table.put_item(Item=item)
+        # url が存在しない場合のみ書き込み
+        # 重複する場合は、ConditionalCheckFailedException が発生する
+        table.put_item(Item=item, ConditionExpression="attribute_not_exists(url)")
+        print("Put item succeeded: " + title)
     except Exception as e:
         # Intentional error handling for duplicates to continue
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
@@ -79,19 +90,37 @@ def add_blog(rss_name, entries, notifier_name):
 
     for entry in entries:
         if recently_published(entry["published"]):
+            categories = entry.get("category", "")
+            if categories:
+                categories = categories.split(",")
+            else:
+                categories = []
+            # categoryには、general:products/amazon-rds,marketing:marchitecture/databasesのようにカンマ区切りで格納されている
+            # general:productsで始まるものは、"/"以降(例：amazon-rds)をservice_categoriesにJSON配列で格納
+            # marketing:architectureで始まるものは、"/"以降（例：databases）をmarketing_architecturesにJSON配列で格納する
+            service_categories = []
+            marketing_architectures = []
+            for category in categories:
+                category = category.strip()  # 空白を除去
+                if category.startswith("general:products/"):
+                    service_categories.append(category.split("/")[1])
+                elif category.startswith("marketing:architecture/"):
+                    marketing_architectures.append(category.split("/")[1])
+
             write_to_table(
                 entry["link"],
                 entry["title"],
                 rss_name,
                 str2datetime(entry["published"]).isoformat(),
                 notifier_name,
+                service_categories,
+                marketing_architectures
             )
         else:
             print("Old blog entry. skip: " + entry["title"])
 
 
 def handler(event, context):
-
     notifier_name, notifier = event.values()
 
     rss_urls = notifier["rssUrl"]

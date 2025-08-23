@@ -7,6 +7,7 @@ import json
 import os
 import time
 import traceback
+import datetime
 
 import urllib.request
 
@@ -24,6 +25,9 @@ SUMMARIZERS = json.loads(os.environ["SUMMARIZERS"])
 ssm = boto3.client("ssm")
 sns_client = boto3.client("sns")
 
+DDB_TABLE_NAME = os.environ["DDB_TABLE_NAME"]
+dynamo = boto3.resource("dynamodb")
+table = dynamo.Table(DDB_TABLE_NAME)
 
 def get_blog_content(url):
     """Retrieve the content of a blog post
@@ -233,6 +237,43 @@ Follow the instruction.
     return summary, detail
 
 
+def write_to_table(link, title, notifier_name, summary, detail):
+    """Write a blog post to DynamoDB
+
+    Args:
+        link (str): The URL of the blog post
+        title (str): The title of the blog post
+        notifier_name (str): The name of the notifier
+        summary (str): The summary of the blog post
+        detail (str): The detail of the blog post
+    """
+    try:
+        # 現在日時
+        now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+        # 書式を yyyy/mm/dd HH:mm:ss に変換
+        formatted_now = now.strftime("%Y/%m/%d %H:%M:%S")
+
+        item = {
+            "url": link,
+            "notifier_name": notifier_name,
+            "title": title,
+            "summary": summary,
+            "detail": detail,
+            "created_at_jst": formatted_now,
+        }
+        print(item)
+        # url が存在しない場合のみ書き込み
+        # 重複する場合は、ConditionalCheckFailedException が発生する
+        table.put_item(Item=item, ConditionExpression="attribute_not_exists(url)")
+        print("Put item succeeded: " + title)
+    except Exception as e:
+        # Intentional error handling for duplicates to continue
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            print("Duplicate item put: " + title)
+        else:
+            # Continue for other errors
+            print(e.message)
+
 def push_notification(item_list):
     """Notify the arrival of articles
 
@@ -295,6 +336,9 @@ def push_notification(item_list):
                 )
             time.sleep(0.5)
 
+        # Write to DynamoDB
+        write_to_table(item["rss_link"], item["rss_title"], item["rss_notifier_name"], item["summary"], item["detail"])
+
         #if destination == "teams":
         #    item["detail"] = item["detail"].replace("。\n", "。\r")
         #    msg = create_teams_message(item)
@@ -313,7 +357,6 @@ def push_notification(item_list):
         #with urllib.request.urlopen(req) as res:
         #    print(res.read())
         #time.sleep(0.5)
-
 
 def get_new_entries(blog_entries):
     """Determine if there are new blog entries to notify on Slack by checking the eventName
