@@ -266,13 +266,13 @@ def write_to_table(link, title, notifier_name, summary, detail):
         # 重複する場合は、ConditionalCheckFailedException が発生する
         table.put_item(Item=item, ConditionExpression="attribute_not_exists(url)")
         print("Put item succeeded: " + title)
-    except Exception as e:
-        # Intentional error handling for duplicates to continue
+    except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             print("Duplicate item put: " + title)
         else:
-            # Continue for other errors
-            print(e.message)
+            print(f"DynamoDB ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
 
 def push_notification(item_list):
     """Notify the arrival of articles

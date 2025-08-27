@@ -49,6 +49,7 @@
                 "rssUrl": {
                     "What’s new": "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
                 },
+                "maxOldDays": "7",
                 "promptVersion": "v2"
             }
         },

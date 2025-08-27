@@ -7,6 +7,7 @@ import feedparser
 import json
 import os
 import dateutil.parser
+from botocore.exceptions import ClientError
 
 # CRAWL_BLOG_URL = json.loads(os.environ["RSS_URL"])
 # NOTIFIERS = json.loads(os.environ["NOTIFIERS"])
@@ -16,16 +17,15 @@ dynamo = boto3.resource("dynamodb")
 table = dynamo.Table(DDB_TABLE_NAME)
 
 
-def recently_published(pubdate):
+def recently_published(pubdate, max_old_days):
     """Check if the publication date is recent
 
     Args:
         pubdate (str): The publication date and time
     """
-
     elapsed_time = datetime.datetime.now() - str2datetime(pubdate)
     print(elapsed_time)
-    if elapsed_time.days > 7:
+    if elapsed_time.days > max_old_days:
         return False
 
     return True
@@ -61,26 +61,32 @@ def write_to_table(link, title, category, pubtime, notifier_name, service_catego
             "notifier_name": notifier_name,
             "title": title,
             "category": category,
-            "service_categories": service_categories,
-            "marketing_architectures": marketing_architectures,
+#            "service_categories": service_categories if service_categories else None,
+#            "marketing_architectures": marketing_architectures if marketing_architectures else None,
             "pubtime": pubtime,
             "created_at_jst": formatted_now,
         }
+        # DynamoDBは空の配列をサポートしないため、空でない場合のみ追加
+        if service_categories:  # 空のリストでない場合のみ追加
+            item["service_categories"] = service_categories
+            
+        if marketing_architectures:  # 空のリストでない場合のみ追加
+            item["marketing_architectures"] = marketing_architectures
+
         print(item)
         # url が存在しない場合のみ書き込み
         # 重複する場合は、ConditionalCheckFailedException が発生する
         table.put_item(Item=item, ConditionExpression="attribute_not_exists(url)")
         print("Put item succeeded: " + title)
-    except Exception as e:
-        # Intentional error handling for duplicates to continue
+    except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             print("Duplicate item put: " + title)
         else:
-            # Continue for other errors
-            print(e.message)
+            print(f"DynamoDB ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
 
-
-def add_blog(rss_name, entries, notifier_name):
+def add_blog(rss_name, entries, notifier_name, max_old_days):
     """Add blog posts
 
     Args:
@@ -89,7 +95,7 @@ def add_blog(rss_name, entries, notifier_name):
     """
 
     for entry in entries:
-        if recently_published(entry["published"]):
+        if recently_published(entry["published"], max_old_days):
             categories = entry.get("category", "")
             if categories:
                 categories = categories.split(",")
@@ -104,7 +110,7 @@ def add_blog(rss_name, entries, notifier_name):
                 category = category.strip()  # 空白を除去
                 if category.startswith("general:products/"):
                     service_categories.append(category.split("/")[1])
-                elif category.startswith("marketing:architecture/"):
+                elif category.startswith("marketing:marchitecture/"):
                     marketing_architectures.append(category.split("/")[1])
 
             write_to_table(
@@ -124,13 +130,14 @@ def handler(event, context):
     notifier_name, notifier = event.values()
 
     rss_urls = notifier["rssUrl"]
+    max_old_days = int(notifier.get("maxOldDays", 7))
     for rss_name, rss_url in rss_urls.items():
         rss_result = feedparser.parse(rss_url)
         print(json.dumps(rss_result))
         print("RSS updated " + rss_result["feed"]["updated"])
-        if not recently_published(rss_result["feed"]["updated"]):
+        if not recently_published(rss_result["feed"]["updated"], max_old_days):
             # Do not process RSS feeds that have not been updated for a certain period of time.
             # If you want to retrieve from the past, change this number of days and re-import.
             print("Skip RSS " + rss_name)
             continue
-        add_blog(rss_name, rss_result["entries"], notifier_name)
+        add_blog(rss_name, rss_result["entries"], notifier_name, max_old_days)
