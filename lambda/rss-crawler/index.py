@@ -76,7 +76,14 @@ def write_to_table(link, title, category, pubtime, notifier_name, service_catego
         print(item)
         # url が存在しない場合のみ書き込み
         # 重複する場合は、ConditionalCheckFailedException が発生する
-        table.put_item(Item=item, ConditionExpression="attribute_not_exists(url)")
+        # DynamoDBでurlが予約されたキーワードであるため、ConditionExpressionで直接使用できない
+        table.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(#url)",
+            ExpressionAttributeNames={
+                "#url": "url"
+            }
+        )
         print("Put item succeeded: " + title)
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
