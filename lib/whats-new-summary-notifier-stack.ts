@@ -23,6 +23,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
 
     const notifiers: [] = this.node.tryGetContext('notifiers');
     const summarizers: [] = this.node.tryGetContext('summarizers');
+    const notifyDays: string = this.node.tryGetContext('notifyDays') || "3";
 
     // Role for Lambda Function to post new entries written to DynamoDB to Slack or Microsoft Teams
     const notifyNewEntryRole = new Role(this, 'NotifyNewEntryRole', {
@@ -92,6 +93,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         NOTIFIERS: JSON.stringify(notifiers),
         SUMMARIZERS: JSON.stringify(summarizers),
         DDB_TABLE_NAME: notifyHistoryTable.tableName,
+        NOTIFY_DAYS: notifyDays,
       },
     });
 

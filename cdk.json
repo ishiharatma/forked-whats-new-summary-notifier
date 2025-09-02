@@ -29,6 +29,7 @@
                 "persona": "solutions architect in AWS"
             }
         },
+        "notifyDays": "3",
         "notifiers": {
             "AwsWhatsNew": {
                 "destination": "slackfree",

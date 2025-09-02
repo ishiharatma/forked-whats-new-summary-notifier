@@ -8,6 +8,7 @@ import os
 import time
 import traceback
 import datetime
+import dateutil.parser
 
 import urllib.request
 
@@ -21,6 +22,7 @@ MODEL_ID = os.environ["MODEL_ID"]
 MODEL_REGION = os.environ["MODEL_REGION"]
 NOTIFIERS = json.loads(os.environ["NOTIFIERS"])
 SUMMARIZERS = json.loads(os.environ["SUMMARIZERS"])
+NOTIFY_DAYS = int(os.environ.get("NOTIFY_DAYS", "3"))
 
 ssm = boto3.client("ssm")
 sns_client = boto3.client("sns")
@@ -365,6 +367,29 @@ def push_notification(item_list):
         #    print(res.read())
         #time.sleep(0.5)
 
+
+def recently_published(pubdate, max_old_days):
+    """Check if the publication date is recent
+
+    Args:
+        pubdate (str): The publication date and time
+    """
+    elapsed_time = datetime.datetime.now() - str2datetime(pubdate)
+    print(elapsed_time)
+    if elapsed_time.days > max_old_days:
+        return False
+
+    return True
+
+def str2datetime(time_str):
+    """Convert the date format from the blog text to datetime
+
+    Args:
+        time_str (str): The date and time string, e.g., "Tue, 20 Sep 2022 16:05:47 +0000"
+    """
+
+    return dateutil.parser.parse(time_str, ignoretz=True)
+
 def get_new_entries(blog_entries):
     """Determine if there are new blog entries to notify on Slack by checking the eventName
 
@@ -375,6 +400,12 @@ def get_new_entries(blog_entries):
     res_list = []
     for entry in blog_entries:
         print(entry)
+        try:
+            notify_ret = recently_published(entry["dynamodb"]["NewImage"]["pubtime"]["S"], NOTIFY_DAYS)
+            print(f"notify_ret: {notify_ret}")
+        except Exception as e:
+            print(f"Error occurred while checking notification: {e}")
+
         if entry["eventName"] == "INSERT":
             new_data = {
                 "rss_category": entry["dynamodb"]["NewImage"]["category"]["S"],
