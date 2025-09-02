@@ -392,6 +392,12 @@ def get_new_entries(blog_entries):
 def create_free_slack_message(item):
     # 改行区切りのdetailsを配列に分割
     details = item["detail"].split("\n")
+    service_categories = item.get("service_categories", [])
+
+    # バッジ形式での表示
+    service_badges = ""
+    if service_categories:
+        service_badges += "```\n" + " | ".join(service_categories) + "\n```"
     # elements に以下のフォーマットで格納する
     # {
 	#    "type": "rich_text_section",
@@ -417,70 +423,86 @@ def create_free_slack_message(item):
                 }
             ]
         })
-
-    message = {
-        "blocks": [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": f'{item["rss_title"]}',
-                }
-            },
-            {
-                "type": "section",
-                "fields": [
-                    {
-                        "type": "plain_text",
-                        "text": f'{item["rss_category"]}'
-                    },
-                    {
-                        "type": "plain_text",
-                        "text": ":clock1: {}".format(f'{item["rss_time"]}'),
-                    }
-                ]
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "plain_text",
-                    "text": f'{item["summary"]}',
-                }
-            },
-    		{
-	    		"type": "rich_text",
-		    	"elements": [
-                    {
-                        "type": "rich_text_list",
-                        "style": "bullet",
-                        "indent": 0,
-                        "elements": elements
-                    }
-                ]
-             },
-            {
-                "type": "section",
-                "text": {
-                    "type": "plain_text",
-                    "text": ":link:AWSページを確認するには、ボタンをクリックしてください。",
-                },
-                "accessory": {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Click Me"
-                    },
-                    "value": "click_me_123",
-                    "url": f'{item["rss_link"]}',
-                    "action_id": "button-action"
-                }
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f'{item["rss_title"]}',
             }
-        ]
-    }
-    return message
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f'*カテゴリ:* {item["rss_category"]}'
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f'*投稿時刻:* :clock1: {item["rss_time"]}',
+                }
+            ]
+        }
+    ]
+    # サービスバッジセクション
+    if service_badges:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*🏷️ 対象サービス*\n{service_badges}"
+            }
+        })
 
+    # 要約とその他のセクション
+    blocks.extend([
+        {
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": f'{item["summary"]}',
+            }
+        },
+        {
+            "type": "rich_text",
+            "elements": [
+                {
+                    "type": "rich_text_list",
+                    "style": "bullet",
+                    "indent": 0,
+                    "elements": elements
+                }
+            ]
+            },
+        {
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": ":link:AWSページを確認するには、ボタンをクリックしてください。",
+            },
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Click Me"
+                },
+                "value": "click_me_123",
+                "url": f'{item["rss_link"]}',
+                "action_id": "button-action"
+            }
+        }
+    ])
+
+    return {"blocks": blocks}
 
 def create_teams_message(item):
+    service_categories = item.get("service_categories", [])
+    # バッジ形式での表示
+    service_badges = ""
+    if service_categories:
+        service_badges += "```\n" + " | ".join(service_categories) + "\n```"
+
     message = {
         "type": "message",
         "attachments": [
@@ -509,6 +531,13 @@ def create_teams_message(item):
                                                     "type": "TextBlock",
                                                     "text": "{} Posted at: {}".format(f'{item["rss_category"]}', f'{item["rss_time"]}'),
                                                 },
+                                                # サービス情報を追加
+                                                *([{
+                                                    "type": "TextBlock",
+                                                    "text": service_badges,
+                                                    "wrap": True,
+                                                    "spacing": "Small"
+                                                }] if service_badges else []),
                                                 {
                                                     "type": "TextBlock",
                                                     "wrap": True,
