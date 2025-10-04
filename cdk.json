@@ -52,6 +52,28 @@
                 },
                 "maxOldDays": "7",
                 "promptVersion": "v2"
+            },
+            "AwsSecurityBlog": {
+                "destination": "slackfree",
+                "summarizerName": "AwsSolutionsArchitectJapanese",
+                "webhookUrlParameterName": "/SecurityBlog/URL",
+                "destinations": [
+                    {
+                        "type": "slackfree",
+                        "distinationType": "URL",
+                        "parameterName": "/SecurityBlog/URL"
+                    },
+                    {
+                        "type": "teams",
+                        "distinationType": "URL",
+                        "parameterName": "/WhatsNew/URL/Teams"
+                    }
+                ],
+                "rssUrl": {
+                    "What’s new": "http://blogs.aws.amazon.com/security/blog/feed/recentPosts.rss"
+                },
+                "maxOldDays": "7",
+                "promptVersion": "blog_v1"
             }
         },
         "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
