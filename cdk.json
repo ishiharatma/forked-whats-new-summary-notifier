@@ -70,7 +70,7 @@
                     }
                 ],
                 "rssUrl": {
-                    "What’s new": "http://blogs.aws.amazon.com/security/blog/feed/recentPosts.rss"
+                    "AwsSecurityBlog": "http://blogs.aws.amazon.com/security/blog/feed/recentPosts.rss"
                 },
                 "maxOldDays": "7",
                 "promptVersion": "blog_v1"

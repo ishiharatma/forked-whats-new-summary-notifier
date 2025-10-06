@@ -445,12 +445,28 @@ def get_new_entries(blog_entries):
             print(f"Error occurred while checking notification: {e}")
 
         if entry["eventName"] == "INSERT":
+            # service_categoriesの取得
+            service_categories = []
+            if "service_categories" in entry["dynamodb"]["NewImage"]:
+                # L (List) 型から値を抽出
+                for item in entry["dynamodb"]["NewImage"]["service_categories"]["L"]:
+                    service_categories.append(item["S"])
+
+            # marketing_architecturesの取得
+            marketing_architectures = []
+            if "marketing_architectures" in entry["dynamodb"]["NewImage"]:
+                # L (List) 型から値を抽出
+                for item in entry["dynamodb"]["NewImage"]["marketing_architectures"]["L"]:
+                    marketing_architectures.append(item["S"])
+
             new_data = {
                 "rss_category": entry["dynamodb"]["NewImage"]["category"]["S"],
                 "rss_time": entry["dynamodb"]["NewImage"]["pubtime"]["S"],
                 "rss_title": entry["dynamodb"]["NewImage"]["title"]["S"],
                 "rss_link": entry["dynamodb"]["NewImage"]["url"]["S"],
                 "rss_notifier_name": entry["dynamodb"]["NewImage"]["notifier_name"]["S"],
+                "service_categories": service_categories,
+                "marketing_architectures": marketing_architectures,
             }
             print(new_data)
             res_list.append(new_data)
