@@ -212,11 +212,49 @@ Output format is defined in <outputFormat></outputFormat> tags.
 Follow the instruction.
 """
 
+    sakura_v1_prompt = f"""
+<input>{blog_body}</input>
+<persona>You are a professional {persona}.</persona>
+<targetAudience>
+Your readers have the following characteristics:
+- Have basic knowledge of SAKURA internet cloud services
+- Want to understand SAKURA internet blog articles and updates efficiently and quickly
+- Seek practical insights and actionable takeaways from technical blog posts
+- Prefer plain, easy-to-understand language over complex technical jargon
+</targetAudience>
+<instruction>
+Analyze the SAKURA internet blog article or update in <input></input> tags and extract key information in bullet points covering:
+- Main topic and purpose of the blog post or update
+- Key technical concepts, features, or services discussed
+- Practical benefits and use cases for SAKURA internet customers
+- Important implementation details or best practices (if mentioned)
+- Who would benefit from this information (target user types)
+
+Keep in mind your target audience specified in <targetAudience></targetAudience> tags - use plain language instead of complex technical jargon, focus on practical benefits, and make the content easily digestible for busy professionals who need to stay updated efficiently.
+
+Your analysis shall be output in <thinking></thinking> tags and each thinking sentence must start with the bullet point "- " and end with "\n". 
+
+Make final summary as per <summaryRule></summaryRule> tags. Try to shorten output for easy reading while preserving essential information.
+
+You are not allowed to utilize any information except in the input. Output format shall be in accordance with <outputFormat></outputFormat> tags.
+</instruction>
+<outputLanguage>In {language}.</outputLanguage>
+<summaryRule>
+The final summary must consist of 2-3 sentences and should be written in plain language that busy SAKURA internet users can quickly understand. The summary should capture:
+1. The main topic/purpose of the blog or update
+2. Key takeaway or practical benefit for SAKURA internet customers
+Output format is defined in <outputFormat></outputFormat> tags.
+</summaryRule>
+<outputFormat><thinking>(bullet points of the input)</thinking><summary>(final summary)</summary></outputFormat>
+Follow the instruction.
+"""
+
     prompts = {
         "default": default_prompt,
         "v1": default_prompt,
         "v2": v2_prompt,
         "blog_v1": blog_v1_prompt,
+        "sakura_v1": sakura_v1_prompt,
     }
     prompt_data = prompts.get(prompt_version, default_prompt)
 

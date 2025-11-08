@@ -27,6 +27,10 @@
             "AwsSolutionsArchitectJapanese": {
                 "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
                 "persona": "solutions architect in AWS"
+            },
+            "SakuraCloudEngineerJapanese": {
+                "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
+                "persona": "cloud engineer in Sakura Cloud"
             }
         },
         "notifyDays": "3",
@@ -74,6 +78,28 @@
                 },
                 "maxOldDays": "7",
                 "promptVersion": "blog_v1"
+            },
+            "SakuraCloudNews": {
+                "destination": "slackfree",
+                "summarizerName": "SakuraCloudEngineerJapanese",
+                "webhookUrlParameterName": "/SakuraCloud/News/URL",
+                "destinations": [
+                    {
+                        "type": "slackfree",
+                        "distinationType": "URL",
+                        "parameterName": "/SakuraCloud/News/URL"
+                    },
+                    {
+                        "type": "teams",
+                        "distinationType": "URL",
+                        "parameterName": "/SakuraCloud/News/URL/Teams"
+                    }
+                ],
+                "rssUrl": {
+                    "SakuraCloudNews": "https://cloud.sakura.ad.jp/news/feed/"
+                },
+                "maxOldDays": "7",
+                "promptVersion": "sakura_v1"
             }
         },
         "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
