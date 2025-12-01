@@ -28,9 +28,13 @@
                 "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
                 "persona": "solutions architect in AWS"
             },
-            "SakuraCloudEngineerJapanese": {
+            "SakuraCloudSolutionsArchitectJapanese": {
                 "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
-                "persona": "cloud engineer in Sakura Cloud"
+                "persona": "solutions architect in Sakura Cloud"
+            },
+            "AzureSolutionsArchitectJapanese": {
+                "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
+                "persona": "solutions architect in Microsoft Azure"
             }
         },
         "notifyDays": "3",
@@ -81,7 +85,7 @@
             },
             "SakuraCloudNews": {
                 "destination": "slackfree",
-                "summarizerName": "SakuraCloudEngineerJapanese",
+                "summarizerName": "SakuraCloudSolutionsArchitectJapanese",
                 "webhookUrlParameterName": "/SakuraCloud/News/URL",
                 "destinations": [
                     {
@@ -103,7 +107,7 @@
             },
             "AzureUpdateNews": {
                 "destination": "slackfree",
-                "summarizerName": "AzureUpdateEngineerJapanese",
+                "summarizerName": "AzureUpdateArchitectJapanese",
                 "webhookUrlParameterName": "/AzureUpdate/News/URL",
                 "destinations": [
                     {
