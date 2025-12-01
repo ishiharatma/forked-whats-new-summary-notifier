@@ -37,6 +37,20 @@
                 "persona": "solutions architect in Microsoft Azure"
             }
         },
+        "notifierSummary": {
+            "destinations": [
+                {
+                    "type": "slackfree",
+                    "distinationType": "URL",
+                    "parameterName": "/NotifierSummary/URL"
+                },
+                {
+                    "type": "teams",
+                    "distinationType": "URL",
+                    "parameterName": "/NotifierSummary/URL/Teams"
+                }
+            ]
+        },
         "notifyDays": "3",
         "notifiers": {
             "AwsWhatsNew": {

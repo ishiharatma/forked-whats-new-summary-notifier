@@ -394,6 +394,10 @@ def push_notification(item_list):
     Args:
         item_list (list): List of articles to be notified
     """
+    notifierCounts = []
+
+    notifier_summary = NOTIFIERS["notifierSummary"]
+    norifier_distinations = notifier_summary.get("destinations", [])
 
     for item in item_list:
         
@@ -416,6 +420,13 @@ def push_notification(item_list):
             print(f"Failed to get blog content: {item_url}")
         else:
             summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
+            if not any(d.get(notifier) for d in notifierCounts):
+                notifierCounts.append({notifier: 1})
+            else:
+                for nc in notifierCounts:
+                    if notifier in nc:
+                        nc[notifier] += 1
+                        break
 
             # Add the summary text to notified message
             item["summary"] = summary
@@ -455,6 +466,51 @@ def push_notification(item_list):
 
             # Write to DynamoDB
             write_to_table(item["rss_link"], item["rss_title"], item["rss_notifier_name"], item["summary"], item["detail"])
+
+    if len(notifierCounts) > 0:
+        for nc in notifierCounts:
+            for notifier_name, notify_count in nc.items():
+                try:
+                    print(f"notifier_name: {notifier_name}, notify_count: {notify_count}")
+                    for norifier_distinations in norifier_distinations:
+                        type = norifier_distinations["type"]
+                        destination_type = norifier_distinations["distinationType"]
+                        ssm_response = ssm.get_parameter(Name=norifier_distinations["parameterName"], WithDecryption=True)
+                        destination_url = ssm_response["Parameter"]["Value"]
+                        notification_message = f"[{notifier_name}] Total {notify_count} new articles notified."
+
+                        if type == "teams":
+                            message = {
+                                "text": notification_message
+                            }
+                        elif type == "slackfree":
+                            message = {
+                                "text": notification_message
+                            }
+                        else:  # Slack
+                            message = {
+                                "text": notification_message
+                            }
+
+                        encoded_msg = json.dumps(message).encode("utf-8")
+                        print("push_msg:{}".format(notification_message))
+
+                        if destination_type == "URL":
+                            headers = {
+                                "Content-Type": "application/json",
+                            }
+                            print("app_webhook_url:{}".format(destination_url))
+                            req = urllib.request.Request(destination_url, encoded_msg, headers)
+                            with urllib.request.urlopen(req) as res:
+                                print(res.read())
+                        elif destination_type == "SNS":
+                            sns_client.publish(
+                                TopicArn=destination_url,
+                                Message=encoded_msg
+                            )
+                        time.sleep(0.5)
+                except Exception as e:
+                    print(f"Error occurred while sending summary notification: {e}")
 
         #if destination == "teams":
         #    item["detail"] = item["detail"].replace("。\n", "。\r")
