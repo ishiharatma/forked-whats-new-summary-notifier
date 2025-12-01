@@ -248,14 +248,43 @@ Output format is defined in <outputFormat></outputFormat> tags.
 <outputFormat><thinking>(bullet points of the input)</thinking><summary>(final summary)</summary></outputFormat>
 Follow the instruction.
 """
-
+    azure_v1_prompt = f"""
+<input>{blog_body}</input>
+<persona>You are a professional {persona}.</persona>
+<targetAudience>
+Your readers have the following characteristics:
+- Have basic knowledge of Microsoft Azure services
+- Want to understand Azure update articles efficiently and quickly
+- Seek practical insights and actionable takeaways from technical update posts
+- Prefer plain, easy-to-understand language over complex technical jargon
+</targetAudience>
+<instruction>
+Analyze the Azure update article in <input></input> tags and extract key information in bullet points covering:
+- Main topic and purpose of the update post
+- Key technical concepts or features discussed
+- Practical benefits and use cases
+- Important implementation details or best practices (if mentioned)
+- Who would benefit from this information
+Keep in mind your target audience specified in <targetAudience></targetAudience> tags - use plain language instead of complex technical jargon, focus on practical benefits, and make the content easily digestible for busy professionals who need to stay updated efficiently.
+</instruction>
+<outputLanguage>In {language}.</outputLanguage>
+<summaryRule>
+The final summary must consist of 2-3 sentences and should be written in plain language that busy Microsoft Azure users can quickly understand. The summary should capture:
+1. The main topic/purpose of the update
+2. Key takeaway or practical benefit for Microsoft Azure customers
+Output format is defined in <outputFormat></outputFormat> tags.
+</summaryRule>
+<outputFormat><thinking>(bullet points of the input)</thinking><summary>(final summary)</summary></outputFormat>
+Follow the instruction.
+"""
     prompts = {
         "default": default_prompt,
         "v1": default_prompt,
         "v2": v2_prompt,
         "blog_v1": blog_v1_prompt,
         "sakura_v1": sakura_v1_prompt,
-    }
+        "azure_v1": azure_v1_prompt,
+        }
     prompt_data = prompts.get(prompt_version, default_prompt)
 
     max_tokens = 4096
@@ -383,46 +412,49 @@ def push_notification(item_list):
 
         # Summarize the blog
         summarizer = SUMMARIZERS[notifier["summarizerName"]]
-        summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
+        if not content:
+            print(f"Failed to get blog content: {item_url}")
+        else:
+            summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
 
-        # Add the summary text to notified message
-        item["summary"] = summary
-        item["detail"] = detail
+            # Add the summary text to notified message
+            item["summary"] = summary
+            item["detail"] = detail
 
-        for destination in destinations:
-            type = destination["type"]
-            destination_type = destination["distinationType"]
-            ssm_response = ssm.get_parameter(Name=destination["parameterName"], WithDecryption=True)
-            destination_url = ssm_response["Parameter"]["Value"]
+            for destination in destinations:
+                type = destination["type"]
+                destination_type = destination["distinationType"]
+                ssm_response = ssm.get_parameter(Name=destination["parameterName"], WithDecryption=True)
+                destination_url = ssm_response["Parameter"]["Value"]
 
-            if type == "teams":                
-                item["detail"] = item["detail"].replace("。\n", "。\r")
-                msg = create_teams_message(item)
-            elif type == "slackfree":
-                msg = create_free_slack_message(item)
-            else:  # Slack
-                msg = item
+                if type == "teams":                
+                    item["detail"] = item["detail"].replace("。\n", "。\r")
+                    msg = create_teams_message(item)
+                elif type == "slackfree":
+                    msg = create_free_slack_message(item)
+                else:  # Slack
+                    msg = item
 
-            encoded_msg = json.dumps(msg).encode("utf-8")
-            print("push_msg:{}".format(item))
+                encoded_msg = json.dumps(msg).encode("utf-8")
+                print("push_msg:{}".format(item))
 
-            if destination_type == "URL":
-                headers = {
-                    "Content-Type": "application/json",
-                }
-                print("app_webhook_url:{}".format(destination_url))
-                req = urllib.request.Request(destination_url, encoded_msg, headers)
-                with urllib.request.urlopen(req) as res:
-                    print(res.read())
-            elif destination_type == "SNS":
-                sns_client.publish(
-                    TopicArn=destination_url,
-                    Message=encoded_msg
-                )
-            time.sleep(0.5)
+                if destination_type == "URL":
+                    headers = {
+                        "Content-Type": "application/json",
+                    }
+                    print("app_webhook_url:{}".format(destination_url))
+                    req = urllib.request.Request(destination_url, encoded_msg, headers)
+                    with urllib.request.urlopen(req) as res:
+                        print(res.read())
+                elif destination_type == "SNS":
+                    sns_client.publish(
+                        TopicArn=destination_url,
+                        Message=encoded_msg
+                    )
+                time.sleep(0.5)
 
-        # Write to DynamoDB
-        write_to_table(item["rss_link"], item["rss_title"], item["rss_notifier_name"], item["summary"], item["detail"])
+            # Write to DynamoDB
+            write_to_table(item["rss_link"], item["rss_title"], item["rss_notifier_name"], item["summary"], item["detail"])
 
         #if destination == "teams":
         #    item["detail"] = item["detail"].replace("。\n", "。\r")

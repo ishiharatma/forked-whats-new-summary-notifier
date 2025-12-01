@@ -100,6 +100,28 @@
                 },
                 "maxOldDays": "7",
                 "promptVersion": "sakura_v1"
+            },
+            "AzureUpdateNews": {
+                "destination": "slackfree",
+                "summarizerName": "AzureUpdateEngineerJapanese",
+                "webhookUrlParameterName": "/AzureUpdate/News/URL",
+                "destinations": [
+                    {
+                        "type": "slackfree",
+                        "distinationType": "URL",
+                        "parameterName": "/AzureUpdate/News/URL"
+                    },
+                    {
+                        "type": "teams",
+                        "distinationType": "URL",
+                        "parameterName": "/AzureUpdate/News/URL/Teams"
+                    }
+                ],
+                "rssUrl": {
+                    "AzureUpdateNews": "https://www.microsoft.com/releasecommunications/api/v2/azure/rss"
+                },
+                "maxOldDays": "7",
+                "promptVersion": "azure_v1"
             }
         },
         "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true,
