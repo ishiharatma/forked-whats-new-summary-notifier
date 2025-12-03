@@ -75,6 +75,31 @@
                 "maxOldDays": "7",
                 "promptVersion": "v2"
             },
+            "AwsBlog": {
+                "destination": "slackfree",
+                "summarizerName": "AwsSolutionsArchitectJapanese",
+                "webhookUrlParameterName": "/Blog/URL",
+                "destinations": [
+                    {
+                        "type": "slackfree",
+                        "distinationType": "URL",
+                        "parameterName": "/Blog/URL"
+                    },
+                    {
+                        "type": "teams",
+                        "distinationType": "URL",
+                        "parameterName": "/WhatsNew/URL/Teams"
+                    }
+                ],
+                "rssUrl": {
+                    "APNBlog": "https://aws.amazon.com/blogs/apn/feed/",
+                    "DevToolsBlog": "https://aws.amazon.com/blogs/developer/feed/",
+                    "ArchitectureBlog": "https://aws.amazon.com/blogs/architecture/feed/",
+                    "AIBlog": "https://aws.amazon.com/blogs/machine-learning/feed/"
+                },
+                "maxOldDays": "7",
+                "promptVersion": "blog_v1"
+            },
             "AwsSecurityBlog": {
                 "destination": "slackfree",
                 "summarizerName": "AwsSolutionsArchitectJapanese",
