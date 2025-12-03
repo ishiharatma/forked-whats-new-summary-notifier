@@ -8,6 +8,17 @@ import json
 import os
 import dateutil.parser
 from botocore.exceptions import ClientError
+from aws_lambda_powertools import Logger, Tracer, Metrics
+from aws_lambda_powertools.metrics import MetricUnit
+# from aws_lambda_powertools.logging.formatters.datadog import DatadogLogFormatter
+from aws_xray_sdk.core import patch_all
+
+logger = Logger(service="whats-new-summary-notifier")
+tracer = Tracer(service="whats-new-summary-notifier")
+metrics = Metrics(namespace="WhatsNewSummaryNotifier", service="whats-new-summary-notifier")
+
+# Initialize X-Ray SDK
+patch_all()
 
 # CRAWL_BLOG_URL = json.loads(os.environ["RSS_URL"])
 # NOTIFIERS = json.loads(os.environ["NOTIFIERS"])
@@ -24,7 +35,7 @@ def recently_published(pubdate, max_old_days):
         pubdate (str): The publication date and time
     """
     elapsed_time = datetime.datetime.now() - str2datetime(pubdate)
-    print(elapsed_time)
+    logger.info(elapsed_time)
     if elapsed_time.days > max_old_days:
         return False
 
@@ -73,7 +84,7 @@ def write_to_table(link, title, category, pubtime, notifier_name, service_catego
         if marketing_architectures:  # 空のリストでない場合のみ追加
             item["marketing_architectures"] = marketing_architectures
 
-        print(item)
+        logger.info(item)
         # url が存在しない場合のみ書き込み
         # 重複する場合は、ConditionalCheckFailedException が発生する
         # DynamoDBでurlが予約されたキーワードであるため、ConditionExpressionで直接使用できない
@@ -84,14 +95,14 @@ def write_to_table(link, title, category, pubtime, notifier_name, service_catego
                 "#url": "url"
             }
         )
-        print("Put item succeeded: " + title)
+        logger.info("Put item succeeded: " + title)
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            print("Duplicate item put: " + title)
+            logger.warning("Duplicate item put: " + title)
         else:
-            print(f"DynamoDB ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
+            logger.error(f"DynamoDB ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
 
 def add_blog(rss_name, entries, notifier_name, max_old_days):
     """Add blog posts
@@ -130,9 +141,12 @@ def add_blog(rss_name, entries, notifier_name, max_old_days):
                 marketing_architectures
             )
         else:
-            print("Old blog entry. skip: " + entry["title"])
+            logger.info("Old blog entry. skip: " + entry["title"])
 
 
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
 def handler(event, context):
     notifier_name, notifier = event.values()
 
@@ -140,11 +154,11 @@ def handler(event, context):
     max_old_days = int(notifier.get("maxOldDays", 7))
     for rss_name, rss_url in rss_urls.items():
         rss_result = feedparser.parse(rss_url)
-        print(json.dumps(rss_result))
-        print("RSS updated " + rss_result["feed"]["updated"])
+        logger.info(json.dumps(rss_result))
+        logger.info("RSS updated " + rss_result["feed"]["updated"])
         if not recently_published(rss_result["feed"]["updated"], max_old_days):
             # Do not process RSS feeds that have not been updated for a certain period of time.
             # If you want to retrieve from the past, change this number of days and re-import.
-            print("Skip RSS " + rss_name)
+            logger.info("Skip RSS " + rss_name)
             continue
         add_blog(rss_name, rss_result["entries"], notifier_name, max_old_days)

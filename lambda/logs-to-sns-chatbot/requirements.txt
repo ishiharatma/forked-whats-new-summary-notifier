@@ -1,4 +1,3 @@
-beautifulsoup4
 # https://pypi.org/project/boto3/
 boto3 >= 1.34.64
 # https://pypi.org/project/aws-lambda-powertools/

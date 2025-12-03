@@ -17,6 +17,17 @@ from botocore.config import Config
 from bs4 import BeautifulSoup
 from botocore.exceptions import ClientError
 import re
+from aws_lambda_powertools import Logger, Tracer, Metrics
+from aws_lambda_powertools.metrics import MetricUnit
+# from aws_lambda_powertools.logging.formatters.datadog import DatadogLogFormatter
+from aws_xray_sdk.core import patch_all
+
+logger = Logger(service="whats-new-summary-notifier")
+tracer = Tracer(service="whats-new-summary-notifier")
+metrics = Metrics(namespace="WhatsNewSummaryNotifier", service="whats-new-summary-notifier")
+
+# Initialize X-Ray SDK
+patch_all()
 
 MODEL_ID = os.environ["MODEL_ID"]
 MODEL_REGION = os.environ["MODEL_REGION"]
@@ -56,11 +67,11 @@ def get_blog_content(url):
                         return None
 
         else:
-            print(f"Error accessing {url}, status code {response.getcode()}")
+            logger.warning(f"Error accessing {url}, status code {response.getcode()}")
             return None
 
     except urllib.error.URLError as e:
-        print(f"Error accessing {url}: {e.reason}")
+        logger.error(f"Error accessing {url}: {e.reason}")
         return None
 
 
@@ -86,13 +97,13 @@ def get_bedrock_client(
     else:
         target_region = region
 
-    print(f"Create new client\n  Using region: {target_region}")
+    logger.info(f"Create new client\n  Using region: {target_region}")
     session_kwargs = {"region_name": target_region}
     client_kwargs = {**session_kwargs}
 
     profile_name = os.environ.get("AWS_PROFILE")
     if profile_name:
-        print(f"  Using profile: {profile_name}")
+        logger.info(f"  Using profile: {profile_name}")
         session_kwargs["profile_name"] = profile_name
 
     retry_config = Config(
@@ -105,12 +116,12 @@ def get_bedrock_client(
     session = boto3.Session(**session_kwargs)
 
     if assumed_role:
-        print(f"  Using role: {assumed_role}", end="")
+        logger.info(f"  Using role: {assumed_role}")
         sts = session.client("sts")
         response = sts.assume_role(
             RoleArn=str(assumed_role), RoleSessionName="langchain-llm-1"
         )
-        print(" ... successful!")
+        logger.info(" ... successful!")
         client_kwargs["aws_access_key_id"] = response["Credentials"]["AccessKeyId"]
         client_kwargs["aws_secret_access_key"] = response["Credentials"][
             "SecretAccessKey"
@@ -327,13 +338,13 @@ Follow the instruction.
         )
         response_body = json.loads(response.get("body").read().decode())
         outputText = beginning_word + response_body.get("content")[0]["text"]
-        print(outputText)
+        logger.info(outputText)
         # extract contant inside <summary> tag
         summary = re.findall(r"<summary>([\s\S]*?)</summary>", outputText)[0]
         detail = re.findall(r"<thinking>([\s\S]*?)</thinking>", outputText)[0]
     except ClientError as error:
         if error.response["Error"]["Code"] == "AccessDeniedException":
-            print(
+            logger.error(
                 f"\x1b[41m{error.response['Error']['Message']}\
             \nTo troubeshoot this issue please refer to the following resources.\ \nhttps://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\
             \nhttps://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\x1b[0m\n"
@@ -368,7 +379,7 @@ def write_to_table(link, title, notifier_name, summary, detail):
             "detail": detail,
             "created_at_jst": formatted_now,
         }
-        print(item)
+        logger.info(item)
         # url が存在しない場合のみ書き込み
         # 重複する場合は、ConditionalCheckFailedException が発生する
         # DynamoDBでurlが予約されたキーワードであるため、ConditionExpressionで直接使用できない
@@ -379,14 +390,14 @@ def write_to_table(link, title, notifier_name, summary, detail):
                 "#url": "url"
             }
         )
-        print("Put item succeeded: " + title)
+        logger.info("Put item succeeded: " + title)
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-            print("Duplicate item put: " + title)
+            logger.error("Duplicate item put: " + title)
         else:
-            print(f"DynamoDB ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
+            logger.error(f"DynamoDB ClientError: {e.response['Error']['Code']} - {e.response['Error']['Message']}")
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
 
 def push_notification(item_list):
     """Notify the arrival of articles
@@ -417,7 +428,7 @@ def push_notification(item_list):
         # Summarize the blog
         summarizer = SUMMARIZERS[notifier["summarizerName"]]
         if not content:
-            print(f"Failed to get blog content: {item_url}")
+            logger.error(f"Failed to get blog content: {item_url}")
         else:
             summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
             if not any(d.get(notifier) for d in notifierCounts):
@@ -447,16 +458,16 @@ def push_notification(item_list):
                     msg = item
 
                 encoded_msg = json.dumps(msg).encode("utf-8")
-                print("push_msg:{}".format(item))
+                logger.info("push_msg:{}".format(item))
 
                 if destination_type == "URL":
                     headers = {
                         "Content-Type": "application/json",
                     }
-                    print("app_webhook_url:{}".format(destination_url))
+                    logger.info("app_webhook_url:{}".format(destination_url))
                     req = urllib.request.Request(destination_url, encoded_msg, headers)
                     with urllib.request.urlopen(req) as res:
-                        print(res.read())
+                        logger.info(res.read())
                 elif destination_type == "SNS":
                     sns_client.publish(
                         TopicArn=destination_url,
@@ -471,7 +482,7 @@ def push_notification(item_list):
         for nc in notifierCounts:
             for notifier_name, notify_count in nc.items():
                 try:
-                    print(f"notifier_name: {notifier_name}, notify_count: {notify_count}")
+                    logger.info(f"notifier_name: {notifier_name}, notify_count: {notify_count}")
                     for norifier_distinations in norifier_distinations:
                         type = norifier_distinations["type"]
                         destination_type = norifier_distinations["distinationType"]
@@ -493,16 +504,16 @@ def push_notification(item_list):
                             }
 
                         encoded_msg = json.dumps(message).encode("utf-8")
-                        print("push_msg:{}".format(notification_message))
+                        logger.info("push_msg:{}".format(notification_message))
 
                         if destination_type == "URL":
                             headers = {
                                 "Content-Type": "application/json",
                             }
-                            print("app_webhook_url:{}".format(destination_url))
+                            logger.info("app_webhook_url:{}".format(destination_url))
                             req = urllib.request.Request(destination_url, encoded_msg, headers)
                             with urllib.request.urlopen(req) as res:
-                                print(res.read())
+                                logger.info(res.read())
                         elif destination_type == "SNS":
                             sns_client.publish(
                                 TopicArn=destination_url,
@@ -510,7 +521,7 @@ def push_notification(item_list):
                             )
                         time.sleep(0.5)
                 except Exception as e:
-                    print(f"Error occurred while sending summary notification: {e}")
+                    logger.error(f"Error occurred while sending summary notification: {e}")
 
         #if destination == "teams":
         #    item["detail"] = item["detail"].replace("。\n", "。\r")
@@ -539,7 +550,7 @@ def recently_published(pubdate, max_old_days):
         pubdate (str): The publication date and time
     """
     elapsed_time = datetime.datetime.now() - str2datetime(pubdate)
-    print(elapsed_time)
+    logger.info(elapsed_time)
     if elapsed_time.days > max_old_days:
         return False
 
@@ -563,12 +574,12 @@ def get_new_entries(blog_entries):
 
     res_list = []
     for entry in blog_entries:
-        print(entry)
+        logger.info(entry)
         try:
             notify_ret = recently_published(entry["dynamodb"]["NewImage"]["pubtime"]["S"], NOTIFY_DAYS)
-            print(f"notify_ret: {notify_ret}")
+            logger.info(f"notify_ret: {notify_ret}")
         except Exception as e:
-            print(f"Error occurred while checking notification: {e}")
+            logger.error(f"Error occurred while checking notification: {e}")
 
         if entry["eventName"] == "INSERT":
             # service_categoriesの取得
@@ -594,10 +605,10 @@ def get_new_entries(blog_entries):
                 "service_categories": service_categories,
                 "marketing_architectures": marketing_architectures,
             }
-            print(new_data)
+            logger.info(new_data)
             res_list.append(new_data)
         else:  # Do not notify for REMOVE or UPDATE events
-            print("skip REMOVE or UPDATE event")
+            logger.info("skip REMOVE or UPDATE event")
     return res_list
 
 def create_free_slack_message(item):
@@ -830,6 +841,9 @@ def create_teams_message(item):
     return message
 
 
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
 def handler(event, context):
     """Notify about blog entries registered in DynamoDB
 
@@ -842,4 +856,4 @@ def handler(event, context):
         if 0 < len(new_data):
             push_notification(new_data)
     except Exception as e:
-        print(traceback.print_exc())
+        logger.error(traceback.format_exc())

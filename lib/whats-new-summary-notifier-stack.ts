@@ -11,6 +11,9 @@ import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import * as path from 'path';
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as logs from "aws-cdk-lib/aws-logs";
+import * as logsDestinations from "aws-cdk-lib/aws-logs-destinations";
 export class WhatsNewSummaryNotifierStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
@@ -23,7 +26,49 @@ export class WhatsNewSummaryNotifierStack extends Stack {
 
     const notifiers: [] = this.node.tryGetContext('notifiers');
     const summarizers: [] = this.node.tryGetContext('summarizers');
+    const notifierSummary: [] = this.node.tryGetContext('notifierSummary');
     const notifyDays: string = this.node.tryGetContext('notifyDays') || "3";
+
+    // Create SNS Topic for notifying errors from Lambda functions
+    const notifyTopic = new sns.Topic(this, 'NotifyTopic', {
+      displayName: 'Notify Topic',
+      enforceSSL: true,
+    });
+    // Create IAM Roles For SubscriptionFilter Lambda
+    const subscriptionFilterLambdaRole = new Role(this, 'SubscriptionFilterLambdaRole', {
+      assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+    });
+    subscriptionFilterLambdaRole.attachInlinePolicy(
+      new Policy(this, 'AllowSubscriptionFilterLogging', {
+        statements: [
+          new PolicyStatement({
+            actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+            effect: Effect.ALLOW,
+            resources: [`arn:aws:logs:${region}:${accountId}:log-group:*`],
+          }),
+          new PolicyStatement({
+            actions: ['sns:Publish'],
+            effect: Effect.ALLOW,
+            resources: [notifyTopic.topicArn],
+          }),
+        ],
+      })
+    );
+    // Create Lambda for SubscriptionFilter
+    const subscriptionFilterFunction = new PythonFunction(this, 'SubscriptionFilterFunction', {
+      runtime: Runtime.PYTHON_3_11,
+      entry: path.join(__dirname, '../lambda/logs-to-sns-chatbot'),
+      handler: 'handler',
+      index: 'index.py',
+      timeout: Duration.seconds(30),
+      logRetention: RetentionDays.ONE_WEEK,
+      role: subscriptionFilterLambdaRole,
+      applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
+      loggingFormat: lambda.LoggingFormat.JSON,
+      environment: {
+        SNS_TOPIC_ARN: notifyTopic.topicArn,
+      },
+    });
 
     // Role for Lambda Function to post new entries written to DynamoDB to Slack or Microsoft Teams
     const notifyNewEntryRole = new Role(this, 'NotifyNewEntryRole', {
@@ -90,11 +135,24 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       environment: {
         MODEL_ID: modelId,
         MODEL_REGION: modelRegion,
-        NOTIFIERS: JSON.stringify(notifiers),
+        NOTIFIERS: JSON.stringify({
+          notifierSummary: notifierSummary,
+          ...notifiers,
+        }),
         SUMMARIZERS: JSON.stringify(summarizers),
         DDB_TABLE_NAME: notifyHistoryTable.tableName,
         NOTIFY_DAYS: notifyDays,
       },
+    });
+
+    // add Subscription Filter to notifyNewEntry log group
+    notifyNewEntry.logGroup.addSubscriptionFilter('NotifyNewEntryLogSubscription', {
+      destination: new logsDestinations.LambdaDestination(subscriptionFilterFunction),
+      filterPattern: logs.FilterPattern.any(
+        logs.FilterPattern.stringValue('$.level', '=', 'ERROR'),
+        //logs.FilterPattern.stringValue('$.level', '=', 'WARN')
+      ),
+      filterName: 'NotifyNewEntryErrorAndWarnFilter',
     });
 
     notifyNewEntry.addEventSource(
@@ -123,6 +181,16 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         DDB_TABLE_NAME: rssHistoryTable.tableName,
         NOTIFIERS: JSON.stringify(notifiers),
       },
+    });
+
+    // add Subscription Filter to newsCrawler log group
+    newsCrawler.logGroup.addSubscriptionFilter('NewsCrawlerLogSubscription', {
+      destination: new logsDestinations.LambdaDestination(subscriptionFilterFunction),
+      filterPattern: logs.FilterPattern.any(
+        logs.FilterPattern.stringValue('$.level', '=', 'ERROR'),
+        //logs.FilterPattern.stringValue('$.level', '=', 'WARN')
+      ),
+      filterName: 'NewsCrawlerErrorAndWarnFilter',
     });
 
     for (const notifierName in notifiers) {

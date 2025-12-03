@@ -121,7 +121,7 @@
             },
             "AzureUpdateNews": {
                 "destination": "slackfree",
-                "summarizerName": "AzureUpdateArchitectJapanese",
+                "summarizerName": "AzureSolutionsArchitectJapanese",
                 "webhookUrlParameterName": "/AzureUpdate/News/URL",
                 "destinations": [
                     {
