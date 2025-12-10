@@ -129,7 +129,7 @@
 					"inputs": [],
 					"servers": {
 						"mcp-server-time": {
-							"command": "python",
+							"command": "python3",
 							"args": [
 								"-m",
 								"mcp_server_time",

@@ -4,7 +4,7 @@ import { Table, AttributeType, BillingMode, StreamViewType } from 'aws-cdk-lib/a
 import { Rule, Schedule, RuleTargetInput, CronOptions } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Role, Policy, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
-import { Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambda';
+import { Runtime, StartingPosition, LayerVersion, Code } from 'aws-cdk-lib/aws-lambda';
 import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
@@ -28,6 +28,14 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     const summarizers: [] = this.node.tryGetContext('summarizers');
     const notifierSummary: [] = this.node.tryGetContext('notifierSummary');
     const notifyDays: string = this.node.tryGetContext('notifyDays') || "3";
+
+    // Create Selenium Layer for notify-to-app function using existing zip file
+    const seleniumLayer = new LayerVersion(this, 'SeleniumLayer', {
+      code: Code.fromAsset(path.join(__dirname, '../lambda/Layer/selenium-with-chromedriver/selenium-p3.12.zip')),
+      compatibleRuntimes: [Runtime.PYTHON_3_11, Runtime.PYTHON_3_12],
+      description: 'Selenium and ChromeDriver for Lambda',
+      layerVersionName: 'selenium-chromedriver-layer',
+    });
 
     // Create SNS Topic for notifying errors from Lambda functions
     const notifyTopic = new sns.Topic(this, 'NotifyTopic', {
@@ -132,6 +140,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
       loggingFormat: lambda.LoggingFormat.JSON,
       reservedConcurrentExecutions: 1,
+      layers: [seleniumLayer],
       environment: {
         MODEL_ID: modelId,
         MODEL_REGION: modelRegion,

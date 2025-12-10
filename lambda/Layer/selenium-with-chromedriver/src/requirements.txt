@@ -1,0 +1,2 @@
+# https://pypi.org/project/selenium/
+selenium==4.36.0

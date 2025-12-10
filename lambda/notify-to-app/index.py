@@ -9,8 +9,8 @@ import time
 import traceback
 import datetime
 import dateutil.parser
-
 import urllib.request
+import urllib.parse
 
 from typing import Optional
 from botocore.config import Config
@@ -73,6 +73,242 @@ def get_blog_content(url):
     except urllib.error.URLError as e:
         logger.error(f"Error accessing {url}: {e.reason}")
         return None
+
+
+def get_azure_update_content(url):
+    """Retrieve the content of an Azure update page using Selenium for dynamic content
+
+    Args:
+        url (str): The URL of the Azure update page (e.g., https://azure.microsoft.com/updates?id=xxxxx)
+
+    Returns:
+        str: The content of the Azure update, including title, category, and description
+    """
+    
+    try:
+        # Try Selenium for JavaScript-rendered content first
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.common.exceptions import TimeoutException, WebDriverException
+            
+            return get_azure_content_with_selenium(url)
+            
+        except ImportError:
+            logger.warning("Selenium not available, using fallback method")
+            return get_azure_update_content_fallback(url)
+        except Exception as e:
+            logger.warning(f"Selenium failed: {e}, using fallback method")
+            return get_azure_update_content_fallback(url)
+            
+    except Exception as e:
+        logger.error(f"Unexpected error fetching Azure update content: {e}")
+        return None
+
+
+def get_azure_content_with_selenium(url):
+    """Get Azure content using Selenium WebDriver"""
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException
+    
+    logger.info("Using Selenium to render JavaScript content")
+    
+    # Configure Chrome options for headless mode
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--window-size=1920,1080')
+    chrome_options.add_argument('--single-process')
+    chrome_options.add_argument('--disable-web-security')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+    
+    # Lambda Layer paths for Chrome and ChromeDriver
+    # Layerからのパスを設定
+    chrome_options.binary_location = "/opt/chrome/chrome"
+    chrome_options.add_argument('--remote-debugging-port=9222')
+    
+    driver = None
+    try:
+        # Create ChromeDriver service with Layer path
+        # Layerによってはパスが異なる場合があるため、複数のパスを試行
+        chromedriver_paths = [
+            "/opt/chromedriver/chromedriver",
+            "/opt/chromedriver",
+            "/opt/python/chromedriver",
+            "chromedriver"
+        ]
+        
+        service = None
+        for path in chromedriver_paths:
+            try:
+                if os.path.exists(path) or path == "chromedriver":
+                    service = webdriver.chrome.service.Service(path)
+                    break
+            except Exception:
+                continue
+        
+        if service is None:
+            logger.warning("ChromeDriver not found in expected paths, using default")
+            service = webdriver.chrome.service.Service()
+            
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        driver.set_page_load_timeout(30)
+        
+        # Navigate to the page
+        logger.info(f"Loading page: {url}")
+        driver.get(url)
+        
+        # Parse URL to get update ID
+        parsed_url = urllib.parse.urlparse(url)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        update_id = query_params.get('id', [None])[0]
+        
+        if update_id:
+            # Wait for the specific accordion element to be present
+            accordion_id = f"accordion-{update_id}"
+            logger.info(f"Waiting for accordion element: {accordion_id}")
+            
+            try:
+                # Wait up to 15 seconds for the element to appear
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.ID, accordion_id))
+                )
+                logger.info(f"Found accordion element: {accordion_id}")
+                
+                # Get the page source after JavaScript execution
+                page_source = driver.page_source
+                soup = BeautifulSoup(page_source, "html.parser")
+                
+                return extract_azure_content_from_soup(soup, update_id)
+                
+            except TimeoutException:
+                logger.warning(f"Timeout waiting for accordion element: {accordion_id}")
+                # Fallback to general extraction
+                page_source = driver.page_source
+                soup = BeautifulSoup(page_source, "html.parser")
+                return extract_azure_content_from_soup(soup, None)
+        
+        else:
+            # Direct article URL - wait for main content
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "main"))
+                )
+            except TimeoutException:
+                logger.warning("Timeout waiting for main content")
+            
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, "html.parser")
+            return extract_azure_content_from_soup(soup, None)
+    
+    except Exception as e:
+        logger.error(f"Error in Selenium WebDriver: {e}")
+        return None
+    
+    finally:
+        if driver:
+            driver.quit()
+
+
+def extract_azure_content_from_soup(soup, update_id):
+    """Extract content from BeautifulSoup object"""
+    content_parts = []
+    
+    try:
+        if update_id:
+            # Look for accordion element
+            accordion_id = f"accordion-{update_id}"
+            accordion_element = soup.find('div', id=accordion_id)
+            
+            if accordion_element:
+                logger.info(f"Found accordion element: {accordion_id}")
+                
+                # Extract title
+                title_element = accordion_element.find(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+                if not title_element:
+                    title_element = accordion_element.find(['button', 'a'])
+                
+                if title_element:
+                    content_parts.append(f"Title: {title_element.get_text(strip=True)}")
+                
+                # Extract content
+                content_div = accordion_element.find('div', class_=['collapse', 'accordion-collapse', 'content'])
+                if not content_div:
+                    content_divs = accordion_element.find_all('div')
+                    if len(content_divs) > 1:
+                        content_div = content_divs[1]
+                
+                if content_div:
+                    # Status information
+                    status_elements = content_div.find_all(string=re.compile(r'LAUNCHED|IN PREVIEW|IN DEVELOPMENT|General availability|Preview|Public preview', re.I))
+                    if status_elements:
+                        content_parts.append(f"Status: {status_elements[0].strip()}")
+                    
+                    # Main content
+                    main_text = content_div.get_text(strip=True)
+                    if len(main_text) > 2000:
+                        main_text = main_text[:2000] + "..."
+                    content_parts.append(f"Description: {main_text}")
+                
+                return "\n\n".join(content_parts) if content_parts else None
+        
+        # General extraction for direct URLs or fallback
+        title_element = soup.find('h1') or soup.find('h2')
+        if title_element:
+            content_parts.append(f"Title: {title_element.get_text(strip=True)}")
+        
+        main = soup.find("main")
+        if main:
+            # Remove unwanted elements
+            for element in main.find_all(['script', 'style', 'nav', 'footer', 'header', 'aside']):
+                element.decompose()
+            
+            main_text = main.get_text(strip=True)
+            if len(main_text) > 2000:
+                main_text = main_text[:2000] + "..."
+            content_parts.append(f"Description: {main_text}")
+        
+        return "\n\n".join(content_parts) if content_parts else None
+        
+    except Exception as e:
+        logger.error(f"Error extracting content from soup: {e}")
+        return None
+
+
+def get_azure_update_content_fallback(url):
+    """Fallback method using urllib when Selenium is not available"""
+    logger.info("Using fallback method with urllib")
+    
+    try:
+        with urllib.request.urlopen(url) as response:
+            html = response.read()
+            if response.getcode() == 200:
+                soup = BeautifulSoup(html, "html.parser")
+                
+                parsed_url = urllib.parse.urlparse(url)
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                update_id = query_params.get('id', [None])[0]
+                
+                return extract_azure_content_from_soup(soup, update_id)
+                
+    except Exception as e:
+        logger.error(f"Fallback method failed: {e}")
+
+def test_azure_content_extraction():
+    """Test function for Azure content extraction - for debugging purposes only"""
+    test_url = "https://azure.microsoft.com/ja-jp/updates?id=534523"
+    content = get_azure_update_content(test_url)
+    logger.info(f"Test Azure content: {content}")
+    return content
 
 
 def get_bedrock_client(
@@ -413,7 +649,7 @@ def push_notification(item_list):
     for item in item_list:
         
         notifier = NOTIFIERS[item["rss_notifier_name"]]
-        webhook_url_parameter_name = notifier["webhookUrlParameterName"]
+        # webhook_url_parameter_name = notifier["webhookUrlParameterName"]  # 使用されていないため一時的にコメントアウト
         prompt_version = notifier.get("promptVersion", "v1")
         #destination = notifier["destination"]
         destinations = notifier.get("destinations", [])
@@ -422,8 +658,11 @@ def push_notification(item_list):
         
         item_url = item["rss_link"]
 
-        # Get the blog context
-        content = get_blog_content(item_url)
+        # Get the blog content - use appropriate function based on URL
+        if "azure.microsoft.com/updates" in item_url:
+            content = get_azure_update_content(item_url)
+        else:
+            content = get_blog_content(item_url)
 
         # Summarize the blog
         summarizer = SUMMARIZERS[notifier["summarizerName"]]
@@ -431,12 +670,12 @@ def push_notification(item_list):
             logger.error(f"Failed to get blog content: {item_url}")
         else:
             summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
-            if not any(d.get(notifier) for d in notifierCounts):
-                notifierCounts.append({notifier: 1})
+            if not any(d.get(item["rss_notifier_name"]) for d in notifierCounts):
+                notifierCounts.append({item["rss_notifier_name"]: 1})
             else:
                 for nc in notifierCounts:
-                    if notifier in nc:
-                        nc[notifier] += 1
+                    if item["rss_notifier_name"] in nc:
+                        nc[item["rss_notifier_name"]] += 1
                         break
 
             # Add the summary text to notified message
@@ -855,5 +1094,5 @@ def handler(event, context):
         new_data = get_new_entries(event["Records"])
         if 0 < len(new_data):
             push_notification(new_data)
-    except Exception as e:
+    except Exception:
         logger.error(traceback.format_exc())
