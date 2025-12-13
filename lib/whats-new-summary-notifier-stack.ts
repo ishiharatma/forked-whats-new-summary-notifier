@@ -26,7 +26,8 @@ export class WhatsNewSummaryNotifierStack extends Stack {
 
     const notifiers: [] = this.node.tryGetContext('notifiers');
     const summarizers: [] = this.node.tryGetContext('summarizers');
-    const notifierSummary: [] = this.node.tryGetContext('notifierSummary');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notifierSummary: Record<string, any> = this.node.tryGetContext('notifierSummary');
     const notifyDays: string = this.node.tryGetContext('notifyDays') || "3";
 
     // Create Selenium Layer for notify-to-app function using existing zip file
@@ -227,6 +228,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         webhookUrlParameterStore.grantRead(notifyNewEntryRole);
 
       });
+
       /*
       const webhookUrlParameterName = notifier['webhookUrlParameterName'];
       const webhookUrlParameterStore = StringParameter.fromSecureStringParameterAttributes(
@@ -255,5 +257,20 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         })
       );
     }
+     
+    const summaryDestinations: [] = notifierSummary['destinations'] || [];
+    summaryDestinations.forEach((destination, index) => {
+      const notifierName = destination['type'] as string;
+      const summaryParameterStore = StringParameter.fromSecureStringParameterAttributes(
+        this,
+        `summaryParameterStore-${notifierName}-${index}`,
+        {
+          parameterName: destination['parameterName'],
+        }
+      );
+      // add permission to Lambda Role
+      summaryParameterStore.grantRead(notifyNewEntryRole);
+      summaryParameterStore.grantRead(newsCrawlerRole);
+    });
   }
 }
