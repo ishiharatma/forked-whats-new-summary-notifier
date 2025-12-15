@@ -644,7 +644,7 @@ def push_notification(item_list):
     notifierCounts = []
 
     notifier_summary = NOTIFIERS["notifierSummary"]
-    norifier_distinations = notifier_summary.get("destinations", [])
+    norifier_summary_distinations = notifier_summary.get("destinations", [])
 
     for item in item_list:
         
@@ -722,10 +722,10 @@ def push_notification(item_list):
             for notifier_name, notify_count in nc.items():
                 try:
                     logger.info(f"notifier_name: {notifier_name}, notify_count: {notify_count}")
-                    for norifier_distinations in norifier_distinations:
-                        type = norifier_distinations["type"]
-                        destination_type = norifier_distinations["distinationType"]
-                        ssm_response = ssm.get_parameter(Name=norifier_distinations["parameterName"], WithDecryption=True)
+                    for norifier_summary_distination in norifier_summary_distinations:
+                        type = norifier_summary_distination["type"]
+                        destination_type = norifier_summary_distination["distinationType"]
+                        ssm_response = ssm.get_parameter(Name=norifier_summary_distination["parameterName"], WithDecryption=True)
                         destination_url = ssm_response["Parameter"]["Value"]
                         notification_message = f"[{notifier_name}] Total {notify_count} new articles notified."
 
@@ -940,7 +940,7 @@ def create_free_slack_message(item):
             "type": "section",
             "text": {
                 "type": "plain_text",
-                "text": ":link:AWSページを確認するには、ボタンをクリックしてください。",
+                "text": ":link:ページを確認するには、ボタンをクリックしてください。",
             },
             "accessory": {
                 "type": "button",
