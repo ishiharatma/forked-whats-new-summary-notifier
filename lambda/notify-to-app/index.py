@@ -717,7 +717,7 @@ def push_notification(item_list):
             # Write to DynamoDB
             write_to_table(item["rss_link"], item["rss_title"], item["rss_notifier_name"], item["summary"], item["detail"])
 
-    if len(notifierCounts) > 0:
+    if len(notifierCounts) > 0 and False: # Summary notification is currently disabled
         for nc in notifierCounts:
             for notifier_name, notify_count in nc.items():
                 try:

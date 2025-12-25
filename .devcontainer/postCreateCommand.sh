@@ -23,10 +23,11 @@ echo 'alias cdksynth="npm run cdk synth"' >> ~/.bashrc
 # AWS関連のエイリアス
 # AWS SSOログインとget-caller-identityのエイリアス設定
 # 基本コマンド（デフォルトプロファイル用）
-echo 'alias awslogin="aws sso login && echo \"現在の認証情報:\" && aws sts get-caller-identity"' >> ~/.bashrc
-#echo 'alias awslogin="aws sso login && echo \"現在の認証情報:\" && aws sts get-caller-identity"' >> ~/.zshrc
+echo 'alias awslogin="aws login && echo \"Current credentials:\" && aws sts get-caller-identity"' >> ~/.bashrc
 echo 'alias awsid="aws sts get-caller-identity"' >> ~/.bashrc
-#echo 'alias awsid="aws sts get-caller-identity"' >> ~/.zshrc
+
+echo 'alias ssologin="aws sso login && echo \"Current credentials:\" && aws sts get-caller-identity"' >> ~/.bashrc
+
 # プロファイル一覧を表示するエイリアス
 echo 'alias awslist="aws configure list-profiles"' >> ~/.bashrc
 # デフォルトとなるプロファイルを切り替えるエイリアス
@@ -45,32 +46,24 @@ awsswback() {
 }
 ' >> ~/.bashrc
 
-# プロファイル指定可能なAWS SSOログイン関数
+# プロファイル指定可能なAWS ログイン関数
 echo '
+# AWS login function with profile option
 awsloginp() {
   if [ -z "$1" ]; then
-    echo "使用法: awsloginp <プロファイル名>"
+    echo "Usage: awsloginp <profile-name>"
     return 1
   fi
-  aws sso login --profile "$1" && echo "現在の認証情報 ($1):" && aws sts get-caller-identity --profile "$1"
+  aws login --profile "$1" && echo "Current credentials ($1):" && aws sts get-caller-identity --profile "$1"
 }
 
-# プロファイル指定可能なAWS認証情報確認関数
-awsidp() {
+# AWS SSO login function with profile option
+ssologinp() {
   if [ -z "$1" ]; then
-    echo "使用法: awsidp <プロファイル名>"
+    echo "Usage: ssologinp <profile-name>"
     return 1
   fi
-  aws sts get-caller-identity --profile "$1"
-}
-
-# プロファイル指定可能なAWS SSOログイン関数
-awsloginp() {
-  if [ -z "$1" ]; then
-    echo "使用法: awsloginp <プロファイル名>"
-    return 1
-  fi
-  aws sso login --profile "$1" && echo "現在の認証情報 ($1):" && aws sts get-caller-identity --profile "$1"
+  aws sso login --profile "$1" && echo "Current credentials ($1):" && aws sts get-caller-identity --profile "$1"
 }
 
 # プロファイル指定可能なAWS認証情報確認関数
@@ -97,12 +90,14 @@ tips() {
   echo "-----------------------------------"
   echo "AWS関連："
   echo "  「awslist」: プロファイル一覧を表示"
+  echo "  「awslogin」: AWS login + check current credentials (default profile)"
+  echo "  「awsloginp <profile-name>」: AWS login with specified profile + check credentials"
+  echo "  「ssologin」: AWS SSO login + check current credentials (default profile)"
+  echo "  「ssologinp <profile-name>」: AWS SSO login with specified profile + check credentials"
+  echo "  「awsid」: Check credentials only (default profile)"
+  echo "  「awsidp <profile-name>」: Check credentials only for specified profile"
   echo "  「awsswp <プロファイル名>」: デフォルトプロファイルを切り替え"
   echo "  「awsswback」: デフォルトプロファイルに戻す"
-  echo "  「awslogin」: AWS SSOログイン + 現在の認証情報確認（デフォルトプロファイル）"
-  echo "  「awsid」: 認証情報確認のみ（デフォルトプロファイル）"
-  echo "  「awsloginp <プロファイル名>」: 指定プロファイルでAWS SSOログイン + 認証情報確認"
-  echo "  「awsidp <プロファイル名>」: 指定プロファイルで認証情報確認のみ"
   echo ""
   echo "Amazon Q CLI関連："
   echo "  「ql」: Amazon Q CLIにログイン(q login)"
