@@ -10,24 +10,24 @@ import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import * as path from 'path';
-import * as lambda from "aws-cdk-lib/aws-lambda";
-import * as sns from "aws-cdk-lib/aws-sns";
-import * as logs from "aws-cdk-lib/aws-logs";
-import * as logsDestinations from "aws-cdk-lib/aws-logs-destinations";
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as logsDestinations from 'aws-cdk-lib/aws-logs-destinations';
+import { AppParameters } from '../parameters/environment';
+
+export interface WhatsNewSummaryNotifierStackProps extends StackProps {
+  parameters: AppParameters;
+}
+
 export class WhatsNewSummaryNotifierStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props: WhatsNewSummaryNotifierStackProps) {
     super(scope, id, props);
 
     const region = Stack.of(this).region;
     const accountId = Stack.of(this).account;
 
-    const modelRegion = this.node.tryGetContext('modelRegion');
-    const modelId = this.node.tryGetContext('modelId');
-
-    const notifiers: [] = this.node.tryGetContext('notifiers');
-    const summarizers: [] = this.node.tryGetContext('summarizers');
-    const notifierSummary: [] = this.node.tryGetContext('notifierSummary');
-    const notifyDays: string = this.node.tryGetContext('notifyDays') || "3";
+    const { modelRegion, modelId, notifiers, summarizers, notifierSummary, notifyDays } = props.parameters;
 
     // Create SNS Topic for notifying errors from Lambda functions
     const notifyTopic = new sns.Topic(this, 'NotifyTopic', {
@@ -203,7 +203,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         month: '*',
         year: '*',
       };
-      const destinations: [] = notifier['destinations'] || [];
+      const destinations = notifier['destinations'] || [];
 
       destinations.forEach((destination, index) => {
         const destinationType = destination['type'];
@@ -218,19 +218,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
         webhookUrlParameterStore.grantRead(notifyNewEntryRole);
 
       });
-      /*
-      const webhookUrlParameterName = notifier['webhookUrlParameterName'];
-      const webhookUrlParameterStore = StringParameter.fromSecureStringParameterAttributes(
-        this,
-        `webhookUrlParameterStore-${notifierName}`,
-        {
-          parameterName: webhookUrlParameterName,
-        }
-      );
 
-      // add permission to Lambda Role
-      webhookUrlParameterStore.grantRead(notifyNewEntryRole);
-      */
       // Scheduled Rule for RSS Crawler
       // Run every hour, 24 hours a day
       // see https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions
