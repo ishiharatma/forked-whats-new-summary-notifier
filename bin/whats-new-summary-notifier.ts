@@ -5,7 +5,7 @@ import * as path from 'path';
 import { WhatsNewSummaryNotifierStack } from '../lib/whats-new-summary-notifier-stack';
 import { AppParameters } from '../parameters/environment';
 
-const PROJECT_NAME = 'whats-new-summary-notifier';
+const PROJECT_NAME = 'home';
 
 const appEnv = process.env.APP_ENV;
 if (!appEnv) {
