@@ -7,7 +7,7 @@ import { AppParameters } from '../parameters/environment';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import { Aspects } from 'aws-cdk-lib';
 
-const PROJECT_NAME = 'whats-new-summary-notifier';
+const PROJECT_NAME = 'home';
 
 const appEnv = process.env.APP_ENV;
 if (!appEnv) {
