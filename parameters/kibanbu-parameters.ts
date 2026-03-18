@@ -4,7 +4,7 @@ import { AppParameters } from './environment';
  * Parameters for the dev environment.
  *
  * Deploy command:
- *   ENV=dev cdk deploy --profile home-dev
+ *   PROJECT=kinanbu cdk deploy --profile kinanbu
  */
 const parameters: AppParameters = {
   modelRegion: 'ap-northeast-1',
@@ -30,18 +30,7 @@ const parameters: AppParameters = {
   },
 
   notifierSummary: {
-    destinations: [
-      {
-        type: 'slackfree',
-        distinationType: 'URL',
-        parameterName: '/NotifierSummary/URL',
-      },
-      {
-        type: 'teams',
-        distinationType: 'URL',
-        parameterName: '/NotifierSummary/URL/Teams',
-      },
-    ],
+    destinations: [],
   },
 
   notifyDays: '3',
@@ -52,11 +41,6 @@ const parameters: AppParameters = {
       summarizerName: 'AwsSolutionsArchitectJapanese',
       webhookUrlParameterName: '/WhatsNew/URL',
       destinations: [
-        {
-          type: 'slackfree',
-          distinationType: 'URL',
-          parameterName: '/WhatsNew/URL',
-        },
         {
           type: 'teams',
           distinationType: 'URL',
@@ -74,11 +58,6 @@ const parameters: AppParameters = {
       summarizerName: 'AwsSolutionsArchitectJapanese',
       webhookUrlParameterName: '/Blog/URL',
       destinations: [
-        {
-          type: 'slackfree',
-          distinationType: 'URL',
-          parameterName: '/Blog/URL',
-        },
         {
           type: 'teams',
           distinationType: 'URL',
@@ -100,11 +79,6 @@ const parameters: AppParameters = {
       webhookUrlParameterName: '/SecurityBlog/URL',
       destinations: [
         {
-          type: 'slackfree',
-          distinationType: 'URL',
-          parameterName: '/SecurityBlog/URL',
-        },
-        {
           type: 'teams',
           distinationType: 'URL',
           parameterName: '/WhatsNew/URL/Teams',
@@ -122,11 +96,6 @@ const parameters: AppParameters = {
       webhookUrlParameterName: '/SakuraCloud/News/URL',
       destinations: [
         {
-          type: 'slackfree',
-          distinationType: 'URL',
-          parameterName: '/SakuraCloud/News/URL',
-        },
-        {
           type: 'teams',
           distinationType: 'URL',
           parameterName: '/SakuraCloud/News/URL/Teams',
@@ -137,28 +106,6 @@ const parameters: AppParameters = {
       },
       maxOldDays: '7',
       promptVersion: 'sakura_v1',
-    },
-    AzureUpdateNews: {
-      destination: 'slackfree',
-      summarizerName: 'AzureSolutionsArchitectJapanese',
-      webhookUrlParameterName: '/AzureUpdate/News/URL',
-      destinations: [
-        {
-          type: 'slackfree',
-          distinationType: 'URL',
-          parameterName: '/AzureUpdate/News/URL',
-        },
-        {
-          type: 'teams',
-          distinationType: 'URL',
-          parameterName: '/AzureUpdate/News/URL/Teams',
-        },
-      ],
-      rssUrl: {
-        AzureUpdateNews: 'https://www.microsoft.com/releasecommunications/api/v2/azure/rss',
-      },
-      maxOldDays: '7',
-      promptVersion: 'azure_v1',
     },
   },
 };

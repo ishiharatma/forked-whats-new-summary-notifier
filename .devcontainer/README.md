@@ -1,99 +1,101 @@
 # Development Container - Infrastructure Setup
 
-## 概要 (Overview)
+*Read this in other languages:* [![🇯🇵 日本語](https://img.shields.io/badge/%F0%9F%87%AF%F0%9F%87%B5-日本語-white)](./README.ja.md) [![🇺🇸 English](https://img.shields.io/badge/%F0%9F%87%BA%F0%9F%87%B8-English-white)](./README.md)
 
-このdev containerは、CDKインフラ構築・管理に必要なツールを全て含んでいます。
+## Overview
 
-## 前提条件 (Prerequisites)
+This dev container includes all the tools needed for CDK infrastructure setup and management.
 
-- Docker または WSL上のDockerデーモン
-- Visual Studio Code + Dev Containers拡張機能
-- プロジェクトのルートディレクトリ直下に、`.aws/config`ファイルが配置されていること
+## Prerequisites
 
-## 含まれるツール (Included Tools)
+- Docker or Docker daemon on WSL
+- Visual Studio Code + Dev Containers extension
+- `.aws/config` file must be placed in the project root directory
 
-- **Node.js & NPM**: JavaScript/TypeScript実行環境
-- **TypeScript**: TypeScriptコンパイラ (`tsc`)
-- **ESLint**: コード品質チェックツール
-- **Git**: ソースコード管理
-- **AWS CLI**: AWSリソース管理用コマンドラインツール
-- **AWS Session Manager Plugin**: EC2インスタンスへの安全な接続
-- **AWS CDK**: Infrastructure as Codeフレームワーク
-- **Docker CLI**: コンテナ管理・実行
-- **UV & UVX**: 高速パッケージマネージャー
+## Included Tools
 
-## AWS認証・アクセス (AWS Authentication)
+- **Node.js & NPM**: JavaScript/TypeScript runtime environment
+- **TypeScript**: TypeScript compiler (`tsc`)
+- **ESLint**: Code quality checking tool
+- **Git**: Source code management
+- **AWS CLI**: Command-line tool for AWS resource management
+- **AWS Session Manager Plugin**: Secure connection to EC2 instances
+- **AWS CDK**: Infrastructure as Code framework
+- **Docker CLI**: Container management and execution
+- **UV & UVX**: Fast package manager
 
-### 便利なエイリアス
+## AWS Authentication and Access
 
-コンテナには以下の便利なAWSやNPM関連エイリアスが設定されています：
+### Convenient Aliases
 
-- `tips`: エイリアス一覧表示
-- AWS関連
-  - `awslogin`: デフォルトプロファイルでAWS SSOログイン
-  - `awsid`: 現在の認証情報確認
-  - `awsloginp <プロファイル名>`: 指定プロファイルでログイン
-  - `awsidp <プロファイル名>`: 指定プロファイルの認証情報確認
-- NPM関連
-  - `npmfl`: フォーマットとLint修正を実行
+The container includes the following convenient AWS and NPM-related aliases:
 
-### 使用例
+- `tips`: Display alias list
+- AWS related
+  - `awslogin`: AWS SSO login with default profile
+  - `awsid`: Check current authentication credentials
+  - `awsloginp <profile-name>`: Login with specified profile
+  - `awsidp <profile-name>`: Check credentials for specified profile
+- NPM related
+  - `npmfl`: Run formatting and lint fixes
+
+### Usage Examples
 
 ```bash
-# デフォルトプロファイルでログイン
+# Login with default profile
 awslogin
 
-# 開発環境管理者としてログイン
+# Login as development environment administrator
 awsloginp dev-admin
 
-# 現在の認証情報を確認
+# Check current authentication credentials
 awsid
 
-# 本番環境の認証情報を確認
+# Check production environment credentials
 awsidp prd-admin
 ```
 
-## 注意事項 (Important Notes)
+## Important Notes
 
-1. **AWS SSO有効期限**: AWS SSOトークンには有効期限があります。期限切れのエラーが表示された場合は `awslogin` または `awsloginp <プロファイル名>` を実行して更新してください。
+1. **AWS SSO Token Expiration**: AWS SSO tokens have an expiration date. If you see an expiration error, run `awslogin` or `awsloginp <profile-name>` to refresh the token.
 
-2. **シークレット管理**: AWSの認証情報やシークレットはGitリポジトリにコミットしないでください。
+2. **Secret Management**: Do not commit AWS credentials or secrets to the Git repository.
 
-3. **リソース管理**: デプロイしたAWSリソースは使用後に適切に削除し、不要なコストが発生しないようにしてください。
+3. **Resource Management**: After using deployed AWS resources, properly delete them to avoid unnecessary costs.
 
-4. **Docker in Docker**: このコンテナ内ではDockerデーモンが稼働しており、ホストのDockerではなくコンテナ内のDockerを使用します。ボリュームやネットワークはホストとは分離されています。
+4. **Docker in Docker**: Docker daemon is running inside this container. Use the Docker inside the container, not the host's Docker. Volumes and networks are isolated from the host.
 
-5. **事前インストール済みツール**: このコンテナには以下のツールが事前にPATHに追加され利用可能です:
-   - Node.js & npm: JavaScriptアプリケーション開発用
-   - TypeScript & tsc: TypeScript開発用
-   - ESLint: コード品質管理用
-   - Git: ソースコード版管理用（最新版がソースからビルドされています）
-   - AWS CLI & 関連ツール: AWS開発用
-   - Docker CLI: コンテナ管理用
+5. **Pre-installed Tools**: The following tools are pre-installed and available on the PATH in this container:
+   - Node.js & npm: For JavaScript application development
+   - TypeScript & tsc: For TypeScript development
+   - ESLint: For code quality management
+   - Git: For source code management (latest version built from source)
+   - AWS CLI & related tools: For AWS development
+   - Docker CLI: For container management
 
-## トラブルシューティング (Troubleshooting)
+## Troubleshooting
 
-### AWS認証エラー
+### AWS Authentication Error
 
-AWS SSOログインエラーが発生した場合：
+If you encounter an AWS SSO login error:
 
 ```text
 Error when retrieving token from sso: Token has expired and refresh failed
 ```
 
-対処法: `awslogin` または `awsloginp <プロファイル名>` を実行してトークンを更新してください。
+Solution: Run `awslogin` or `awsloginp <profile-name>` to refresh the token.
 
-### Dockerコマンドの利用
+### Using Docker Commands
 
-コンテナ内のDockerを使用する際の注意点:
+Notes when using Docker inside the container:
 
-- ホストマシンのDockerとは独立しています
-- イメージやコンテナはホストと共有されません
-- 通常通り `docker` コマンドを使用できますが、実行環境はコンテナ内です
+- Independent from the host machine's Docker
+- Images and containers are not shared with the host
+- Use `docker` commands normally, but the execution environment is inside the container
 
-### バージョン確認
+### Version Check
 
-環境に含まれるツールのバージョンは以下のコマンドで確認できます：
+You can check the versions of tools included in the environment with the following commands:
 
 ```bash
 node -v

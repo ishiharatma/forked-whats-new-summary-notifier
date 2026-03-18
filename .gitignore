@@ -26,3 +26,7 @@ ENV/
 .aws/amazonq/cache/
 .aws/amazonq/*.log
 .aws/sso/cache/
+.aws/login/
+
+*.cer
+!YourRootCA.cer
