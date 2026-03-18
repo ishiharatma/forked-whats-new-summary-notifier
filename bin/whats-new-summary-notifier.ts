@@ -8,7 +8,11 @@ import { AppParameters } from '../parameters/environment';
 const app = new cdk.App();
 
 const project: string = process.env.PROJECT || app.node.tryGetContext('project') || 'home';
-const environment: string = (process.env.ENV as string) || '';
+const environment: string = process.env.ENV || 'dev';
+
+console.log(`Project: ${project}`);
+console.log(`Environment: ${environment}`);
+
 let profile = project;
 if (!project) {
   throw new Error(
@@ -19,6 +23,7 @@ if (!project) {
 }
 
 if (environment) {
+  console.log(`Deploying with profile: ${project}-${environment}`);
   profile = `${project}-${environment}`;
 } else {
   /*

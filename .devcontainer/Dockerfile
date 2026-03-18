@@ -67,8 +67,8 @@ RUN if [ "$IS_PROXY" = "true" ] ; then \
 
 ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
     AWS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
-    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
-    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+#    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 #    NODE_EXTRA_CA_CERTS==/etc/ssl/certs/ca-certificates.crt \
 
 # Install additional packages
@@ -144,21 +144,21 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/home/node/.local/bin:${PATH}"
 
 # LocalStack CLI
-RUN pip3 install --user awscli-local --break-system-packages
+#RUN pip3 install --user awscli-local --break-system-packages
 
-ARG LOCALSTACK_VERSION="4.9.1"
-RUN export FILE="" && \
-    if [ $(uname -m) = "x86_64" ]; then \
-    export FILE="localstack-cli-${LOCALSTACK_VERSION}-linux-amd64-onefile.tar.gz"; \
-    elif [ $(uname -m) = "aarch64" ]; then \
-    export FILE="localstack-cli-${LOCALSTACK_VERSION}-linux-arm64-onefile.tar.gz"; \
-    fi && \
-    if [ -n "$FILE" ]; then \
-    echo "v${LOCALSTACK_VERSION}/Downloading ${FILE}" && \
-    curl --output "${FILE}" --location "https://github.com/localstack/localstack-cli/releases/download/v${LOCALSTACK_VERSION}/${FILE}" && \
-    sudo tar xvzf "${FILE}" -C /usr/local/bin && \
-    rm "${FILE}"; \
-    fi
+#ARG LOCALSTACK_VERSION="4.9.1"
+#RUN export FILE="" && \
+#    if [ $(uname -m) = "x86_64" ]; then \
+#    export FILE="localstack-cli-${LOCALSTACK_VERSION}-linux-amd64-onefile.tar.gz"; \
+#    elif [ $(uname -m) = "aarch64" ]; then \
+#    export FILE="localstack-cli-${LOCALSTACK_VERSION}-linux-arm64-onefile.tar.gz"; \
+#    fi && \
+#    if [ -n "$FILE" ]; then \
+#    echo "v${LOCALSTACK_VERSION}/Downloading ${FILE}" && \
+#    curl --output "${FILE}" --location "https://github.com/localstack/localstack-cli/releases/download/v${LOCALSTACK_VERSION}/${FILE}" && \
+#    sudo tar xvzf "${FILE}" -C /usr/local/bin && \
+#    rm "${FILE}"; \
+#    fi
 
 # Install git-remote-codecommit
 RUN pip3 install --user git-remote-codecommit --break-system-packages

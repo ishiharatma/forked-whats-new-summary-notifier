@@ -8,7 +8,7 @@ import { AppParameters } from './environment';
  */
 const parameters: AppParameters = {
   modelRegion: 'ap-northeast-1',
-  modelId: 'apac.anthropic.claude-sonnet-4-20250514-v1:0',
+  modelId: 'jp.anthropic.claude-sonnet-4-6',
 
   summarizers: {
     AwsSolutionsArchitectEnglish: {
