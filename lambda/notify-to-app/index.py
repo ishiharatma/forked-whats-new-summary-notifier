@@ -318,7 +318,7 @@ Follow the instruction.
             "max_tokens": max_tokens,
             "messages": messages,
             "temperature": 0.5,
-            "top_p": 1,
+            #"top_p": 1,
             "top_k": 250,
         }
     )
