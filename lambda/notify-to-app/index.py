@@ -305,17 +305,12 @@ Follow the instruction.
         "content": [
             {
                 "type": "text",
-                "text": prompt_data,
+                "text": prompt_data + f"\nBegin your response with {beginning_word}",
             }
         ],
     }
 
-    assistant_message = {
-        "role": "assistant",
-        "content": [{"type": "text", "text": f"{beginning_word}"}],
-    }
-
-    messages = [user_message, assistant_message]
+    messages = [user_message]
 
     body = json.dumps(
         {
