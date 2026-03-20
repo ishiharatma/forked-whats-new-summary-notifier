@@ -426,12 +426,13 @@ def push_notification(item_list):
             logger.error(f"Failed to get blog content: {item_url}")
         else:
             summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], prompt_version=prompt_version)
-            if not any(d.get(notifier) for d in notifierCounts):
-                notifierCounts.append({notifier: 1})
+            notifier_name = item["rss_notifier_name"]
+            if not any(d.get(notifier_name) for d in notifierCounts):
+                notifierCounts.append({notifier_name: 1})
             else:
                 for nc in notifierCounts:
-                    if notifier in nc:
-                        nc[notifier] += 1
+                    if notifier_name in nc:
+                        nc[notifier_name] += 1
                         break
 
             # Add the summary text to notified message
@@ -473,7 +474,7 @@ def push_notification(item_list):
             # Write to DynamoDB
             write_to_table(item["rss_link"], item["rss_title"], item["rss_notifier_name"], item["summary"], item["detail"])
 
-    if len(notifierCounts) > 0:
+    if len(notifierCounts) > 0 and len(norifier_distinations) > 0:
         for nc in notifierCounts:
             for notifier_name, notify_count in nc.items():
                 try:
